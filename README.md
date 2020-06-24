@@ -6,7 +6,7 @@ The Original Viral Track was Developed by Pierre Bost as above.
 This Fork of Viral Track has been updated by Lauren Overend and includes additional scripts, a slightly altered output and downsampled FastQ Test data from: 
 https://www.nature.com/articles/s41597-019-0116-4
 
-Tool Setup used for Adaptations: 
+Command Line Tool Version used by @LaurenOverend: 
 UMI-tools/1.0.1-foss-2020a-Python-3.8.2 
 R-bundle-Bioconductor/3.11-foss-2020a-R-4.0.0
 SAMtools/1.10-GCC-9.3.0
