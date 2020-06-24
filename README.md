@@ -1,6 +1,6 @@
 # Viral-Track2.0
 
-Viral-Track is a R-based computational software based on **STAR** and **samtools** developed to detect and identify viruses from single-cell RNA-sequencing (scRNA-seq) raw data. This tool was tested on various scRNA-seq datasets derived from mouse and human infected samples as described in our paper *'Detecting and studying viral infection at the single-cell resolution using Viral-Track'*. - The Original Viral Track was Developed by Pierre Bost descibed. 
+Viral-Track is an R-based computational tool based on **STAR** and **samtools**. Viral-TRack has been developed to detect and identify viruses from single-cell RNA-sequencing (scRNA-seq) raw data. This tool was tested on various scRNA-seq datasets derived from mouse and human infected samples as described in the Paper by Bost et al. *'Detecting and studying viral infection at the single-cell resolution using Viral-Track'*. 
 
 This Fork of Viral Track has been updated by Lauren Overend and includes additional scripts, a slightly altered output and downsampled Fastq test-data from: 
 https://www.nature.com/articles/s41597-019-0116-4
