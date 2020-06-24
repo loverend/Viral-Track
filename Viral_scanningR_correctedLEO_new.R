@@ -583,16 +583,6 @@ for (k in List_output_path) {
             col="black",horiz = T,cex.lab=1.3,cex.axis = 1.3,cex.names=1,
             xlim=c(0,max(Mapping_selected_virus$Unique_mapping)*1.2),xlab="Number of uniquely mapped reads",
             names.arg = rownames(Mapping_selected_virus)[nrow(Mapping_selected_virus):1])
-    
-    #What are the identified viruses ?
-    Virus_database_filtered = Virus_database[Virus_database$Name_sequence%in%detected_virus,]
-    N_virus_identified = table(as.character(Virus_database_filtered$Virus_name))
-    
-    if (nrow(N_virus_identified)>0) {
-      plot(NULL,xlim=c(0,10),ylim=c(0,length(detected_virus)),xaxt="n",yaxt="n",xlab="",ylab="")
-      text(x=rep(3.5,length(detected_virus)),y=1:length(detected_virus),cex=0.8, Virus_database_filtered$Virus_name)
-      text(x=rep(8,length(detected_virus)),y=1:length(detected_virus),cex=0.8, Virus_database_filtered$Name_sequence)
-      }
     }
   dev.off()
   cat("QC plot done ! \n", file="Viral_track_scanning.log", append = TRUE)
