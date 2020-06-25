@@ -278,7 +278,7 @@ dir <- paste(temp_output_dir,"/Viral_BAM_files/",sep = "")
 if(length(list.files(dir))==0){
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   cat(paste0("\t NO VIRUSES IDENFIFIED WITH MIN READS MAPPED >=", Minimal_read_mapped, ". \n"), file=log, append=TRUE)
-  cat("\t NO QC VIRAL METRICS WILL BE CALCULTED SCRIPT \n", file=log, append=TRUE)
+  cat("\t NO QC VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   }  
 
@@ -502,7 +502,7 @@ dev.off()
 cat("\t 11. Plotting QC plots Done. \n", file=log, append = TRUE)
 cat("\t ----------------------------------------------\n", file=log, append=TRUE)
 cat("QC PDF and Summary Statistics Done and Saved.  \n", file=log, append = TRUE)
-cat("\t ----------------------------------------------\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
 
 
 ## ------------------------------------------------------------------------------------
@@ -544,4 +544,3 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("ViralTrack_Demultiplexing 2.0  \n", file=log, append=TRUE)
 start_time <- Sys.time()
 cat("----------------------------------------------\n", file=log, append=TRUE)
-
