@@ -464,7 +464,7 @@ if (length(detected_virus) > 0) {
 }
 
 # Plot Number of Reads > 50 (filtering threshold)
-if(length(rownames(Mapping_selected_virus))>1){
+if(length(rownames(Mapping_selected_virus))>=1){
   plot(QC_result$N_reads,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector,log="x",cex=1.5,xlab="Number of Mapped Reads",ylab="% Mapped genome",ylim=c(0,100),cex.lab=1.5,main="Viral Summary: Read Count")
   abline(h=5,lwd=2,lty=2,col="grey")
   abline(v=Minimal_read_mapped,lwd=2,lty=2,col="grey")
