@@ -19,13 +19,13 @@ if(nzchar(system.file(package = "optparse"))==FALSE){
 suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
-  make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping [default]"),
+  make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
   make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub10k.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub100k.fa', help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="Viral_Track", help="Run Name [default]"),
   make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference.txt", help="Path to VirusSite annotation file [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
@@ -79,7 +79,9 @@ if(nzchar(system.file(package = "doParallel"))==FALSE){
 if(nzchar(system.file(package = "GenomicAlignments"))==FALSE){
   stop("GenomicAlignments not installed. Terminating. \n")
 }
-
+if(nzchar(system.file(package = "Matrix"))==FALSE){
+  stop("Matrix not installed. Terminating. \n")
+}
 ## Check Validiamety of Input FASTQ File
 List_target_path = c()
 if (!is.null(opt$fastq)) {
@@ -103,6 +105,7 @@ suppressMessages(library(Biostrings))
 suppressMessages(library(ShortRead))
 suppressMessages(library(doParallel))
 suppressMessages(library(GenomicAlignments))
+suppressMessages(library(Matrix))
 
 ## Setting up log.file: 
 name <- unlist(strsplit(opt$fastq,"/",fixed = T))
@@ -543,4 +546,159 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("ViralTrack_Demultiplexing 2.0  \n", file=log, append=TRUE)
 start_time <- Sys.time()
+cat("Start Time: ", start_time, "\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+
+## -----------------------------------------------------------------------------------
+cat("Aggregating All Detected Viral and Human BAM files into Reads to Demultipled. \n", file=log, append=TRUE)
+
+## First aggregating all the reads from the detected viruses:
+List_bam_files =c()
+## Identify which viral bam files we want to demultiplex (those for filtered viruses)
+Identified_viral_fragments <- detected_virus  
+## Assuming viral reads are present: 
+for (segment_temp in Identified_viral_fragments) {
+  List_bam_files = c(List_bam_files, paste(temp_output_dir,"/Viral_BAM_files/",segment_temp,".bam",sep = ""))
+}
+## Also we want to demultiplex human Reads
+path_to_human <- paste0(temp_output_dir, "/HUMAN_BAM_files")
+List_bam_files <- c(List_bam_files, list.files(path_to_human, recursive = TRUE, full.name=TRUE))
+List_bam_files = paste("\'",List_bam_files,"\'",sep = "")
+  
+## Merge these bam files into a Read to demultiplex file:   
+command_merge = base::paste("samtools merge ", temp_output_dir,"/Reads_to_demultiplex.bam -f ",paste(List_bam_files,collapse = " "),sep="")
+system(command_merge)
+
+cat("Aggregation Complete. \n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("Performing Feature Counts on Reads To Demultiplex.  \n", file=log, append=TRUE)
+start_time_f <- Sys.time()
+cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
+cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
+## Assigning reads to transcripts using Rsubread Featurecounts
+featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -M --primary -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam", sep="")
+system(featurecommand)
+end_time_f <- Sys.time()
+cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
+cat("Feature Counts Complete.  \n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+  
+## We now have to sort the BAM file:
+cat("Sorting Bam File.  \n", file=log, append=TRUE)
+command_sort =paste("samtools sort ",temp_output_dir,"/Reads_to_demultiplex.bam.featureCounts.bam -o ",temp_output_dir,"/Assigned_sorted.bam",sep = "")
+system(command_sort)
+cat("Done.  \n", file=log, append=TRUE)
+
+## We now index the BAM file:
+cat("Indexing Bam File.  \n", file=log, append=TRUE)
+command_index =paste("samtools index ",temp_output_dir,"/Assigned_sorted.bam",sep = "")
+system(command_index)
+cat("Done.  \n", file=log, append=TRUE)
+  
+## Final command : Umi-tools command
+## This will deduplicate reads 
+cat("Starting UMI-tools Count.  \n", file=log, append=TRUE)
+command_umi_tools = paste("umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XT --per-cell -I ",
+                          temp_output_dir,"/Assigned_sorted.bam  -S ",temp_output_dir, "/Expression_table.tsv --wide-format-cell-counts", sep="")
+system(command_umi_tools)
+cat("Done.  \n", file=log, append=TRUE)
+## -----------------------------------------------------------------------------------
+## Converting to Matrix Format: 
+cat("----------------------------------------------\n", file=log, append=TRUE)
+
+cat("Reading Expression tsv file.  \n", file=log, append=TRUE)
+# Saving matrix as Sparse Matrixform in an outs directory:
+MTX_dir = paste(temp_output_dir,"/viral_filtered_features/", sep = "")
+dir.create(MTX_dir)
+  
+# Read non-sparse features:
+file_tsv = paste0(temp_output_dir, "/Expression_table.tsv")
+expression_table <- read.table(file = file_tsv, sep = '\t', header = TRUE, row.names = 1)
+
+# Convert to data-frame to allow for Calculation of Summary Statistics
+expression_table <- as.data.frame(t(expression_table))
+viral_cols <- grep("refseq", colnames(expression_table), value=TRUE)
+human_cols <- colnames(expression_table)[!colnames(expression_table) %in% viral_cols]
+mito_cols <- grep("MT_1", colnames(expression_table), value=TRUE)
+
+cat("Calculating Meta Data Percentages.  \n", file=log, append=TRUE)
+# Calculating meta data percentages:
+# Percent human reads per cell:
+cat("\t Human Read Percentage Calculated.  \n", file=log, append=TRUE)
+expression_table$percent_human_reads <- (rowSums(expression_table[, c(human_cols)]))/ (rowSums(expression_table))* 100
+# Percent mito reads per cell:
+cat("\t Human Mitochondrial Read Percentage Calculated.  \n", file=log, append=TRUE)
+expression_table$percent_mitochondrial_reads <- (expression_table[, c(mito_cols)])/ (rowSums(expression_table))* 100
+
+# Percent viral read per cell - for all viruses:
+
+if(length(viral_cols)>= 1){
+  cat("VIRAL reads PRESENT. Calculating Total and Individual Viral Percentages. \n", file=log, append=TRUE)
+  if(length(viral_cols)==1){
+    cat("Only One Virus Present. \n", file=log, append=TRUE)
+    expression_table$percent_viral_reads <- expression_table[, c(viral_cols)]/ (rowSums(expression_table[, c(viral_cols, human_cols)]))* 100
+  } else {
+    cat("Multiple Viruses Present. \n", file=log, append=TRUE)
+    expression_table$percent_viral_reads <- (rowSums(expression_table[, c(viral_cols)]))/ (rowSums(expression_table[, c(viral_cols, human_cols)]))* 100  
+  } 
+} else {
+  cat("No Viral Reads Present: percent_viral_reads = 0. \n", file=log, append=TRUE) 
+  expression_table$percent_viral_reads <- "0"
+}
+
+# Percent viral reads per cell per virus.
+if(length(viral_cols)>= 1){
+  cat("Calculating Percentage per Virus. \n", file=log, append=TRUE)
+  for (i in viral_cols){
+    y <- strsplit(i, split='|', fixed=TRUE)
+    y = unlist(y)
+    name=paste0("percent_viral_reads_", y[2], y[4])
+    virus <- i
+    expression_table[, name] <- (expression_table[, c(virus)])/ (rowSums(expression_table[, c(viral_cols, human_cols)]))* 100
+  }
+} 
+cat("Finished Calculating Viral Percentages. \n", file=log, append=TRUE)
+
+## All percentages calculated
+## Converting Table To SPARSE MATRIX FORMAT
+cat("Converting Expression Table into Sparse Format. \n", file=log, append=TRUE)
+expression_table <- (t(expression_table))
+expression_table <- Matrix(expression_table, sparse = TRUE)
+cat("Done. \n", file=log, append=TRUE)
+cat("Writing Viral_counts.mtx. \n", file=log, append=TRUE)
+writeMM(obj = expression_table, file=paste0(MTX_dir, "viral_counts.mtx"))
+cat("Writing barcodes.tsv. \n", file=log, append=TRUE)
+cat("Writing genomes.tsv. \n", file=log, append=TRUE)
+cellbarcode <- rownames(expression_table)
+genome <- colnames(expression_table)
+write.table(cellbarcode, file=paste0(MTX_dir, 'barcodes.tsv'), quote=FALSE, sep='\t', col.names = FALSE, row.names = FALSE)
+write.table(genome, file=paste0(MTX_dir, 'genomes.tsv'), quote=FALSE, sep='\t', col.names = FALSE, row.names = FALSE)
+cat("Done. \n", file=log, append=TRUE)
+
+
+## Now we just move files of interest into the Report directory: 
+cat("Creating Report Directory. \n", file=log, append=TRUE)
+Report_dir <- paste0(MTX_dir, "Reports")
+dir.create(Report_dir)
+cat("Moving Useful Files into Report Directory. \n", file=log, append=TRUE)
+move <- paste0("cp ", temp_output_dir, "/counts.txt.summary ", Report_dir )
+system(move)
+move <- paste0("cp ", pdf_name, " ", Report_dir )
+system(move)
+move <- paste0("cp ", filteredoutfile, " ", Report_dir )
+system(move)
+move <- paste0("cp ", unfilteredoutfile, " ", Report_dir )
+system(move)
+cat("Done. \n", file=log, append=TRUE)
+
+## DONE!
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("DEMULTIPLEXING COMPLETE. \n", file=log, append=TRUE)
+end_time <- Sys.time()
+cat("Demultipexing End Time ", end_time, "\n", file=log, append=TRUE)
+Time_difference <- end_time - start_time
+cat("Run Time ", Time_difference, "\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("PIPELINE COMPLETE. \n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
