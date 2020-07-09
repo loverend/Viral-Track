@@ -31,10 +31,7 @@ l <- read.fasta(opt$genomes, seqtype = "DNA", as.string = TRUE, forceDNAtolower 
 annotation <- unlist(getAnnot(l))
 all_genomes <- names(l)
 ## Make an Empty Data Frame
-df <- data.frame(Name_sequence=character(),
-                 Genome_length=numeric(), 
-                 Virus_name=character(), 
-                 Complete_segment_name=character()) 
+df <- NULL 
 ## Fill with Relevant Columns
 for (i in 1:length(all_genomes)){
   z <- all_genomes[i]
@@ -44,10 +41,14 @@ for (i in 1:length(all_genomes)){
   x <- annotation[i]
   f <- unlist(strsplit(x, "|", fixed=TRUE))[4]
   q <- unlist(strsplit(f, ",", fixed=TRUE))[1]
-  df[i,] <- c(nc, nucleo, q, f)
+  row <- c(nc, nucleo, q, f)
+  df = rbind(df, row)
 } 
+colnames(df) <- c("Name_sequence", "Genome_length", "Virus_name", "Complete_segment_name")
+corona <- c("NC_045512.2", "29903", "SARS_Cov_2", "Severe acute respiratory syndrome coronavirus 2 isolate Wuhan-Hu-1, complete genome") 
+df = rbind(df, corona)
 ## Save
 file_name <- paste0(opt$output, "/Updated_VirusSite_Reference.txt")
 write.table(df, file = paste0(opt$output, "/Updated_VirusSite_Reference.txt"), sep = "\t", row.names = FALSE, col.names = TRUE, quote=FALSE)
 
-## DONT FORGET TO ADD CORONA ONCE MADE 
+
