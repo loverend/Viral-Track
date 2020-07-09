@@ -49,10 +49,4 @@ corona <- c("NC_045512.2", "29903", "SARS_Cov_2", "Severe acute respiratory synd
 df = rbind(df, corona)
 ## Save
 file_name <- paste0(opt$output, "/Updated_VirusSite_Reference.txt")
-<<<<<<< HEAD
 write.table(df, file = paste0(opt$output, "/Updated_VirusSite_Reference.txt"), sep = "\t", row.names = FALSE, col.names = TRUE, quote=FALSE)
-=======
-write.table(df, file = paste0(opt$output, "/Updated_VirusSite_Reference.txt"), sep = "\t", row.names = FALSE, col.names = TRUE, quote=FALSE)
-
-
->>>>>>> fccf19a92b5e1fa0f88df63ed820287b8fc22abb
