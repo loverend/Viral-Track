@@ -12,5 +12,5 @@ module load SAMtools/1.10-GCC-9.3.0
 module load STAR/2.7.3a-GCC-9.3.0
 
 
-gunzip /well/immune-rep/users/kvi236/HUMAN_GENOME/*
-STAR --runThreadN 8 --runMode genomeGenerate --genomeDir /well/immune-rep/users/kvi236/VIRAL_TRACK_REFERENCE_BUILD_273a --genomeFastaFiles /well/immune-rep/users/kvi236/VIRUS_REFERENCE/genomes.fasta /well/immune-rep/users/kvi236/VIRUS_REFERENCE/covid-19.fasta /well/immune-rep/users/kvi236/HUMAN_GENOME/*.fa
+gunzip HUMAN_GENOME/*
+STAR --runThreadN 8 --runMode genomeGenerate --genomeDir /VIRAL_TRACK_REFERENCE_BUILD_273a --genomeFastaFiles /VIRUS_REFERENCE/genomes.fasta /VIRUS_REFERENCE/covid-19.fasta /HUMAN_GENOME/*.fa
