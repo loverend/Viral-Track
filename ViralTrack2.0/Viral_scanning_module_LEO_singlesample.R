@@ -86,7 +86,7 @@ if(nzchar(system.file(package = "Matrix"))==FALSE){
 List_target_path = c()
 if (!is.null(opt$fastq)) {
   if(file.exists(opt$fastq)){
-    cat("FATSQ File present. \n") 
+    cat("FASTQ File present. \n") 
     if(any(grepl(".fa|.fq|.fasta", opt$fastq))==TRUE){
       cat("FASTQ File Type is Valid. \n")
       List_target_path = opt$fastq
@@ -177,9 +177,9 @@ cat(paste0("Start time: ", start_time, "\n"), file=log, append=TRUE)
 name_prefix = paste0(temp_output_dir, "/", name_target)
   
 #We construct a complex command 
-STAR_mapping_command = paste("STAR --runThreadN",N_thread,"--outBAMsortingThreadN",N_thread_sort,"--outBAMsortingBinsN", N_bins, "--genomeDir",Index_genome,"--readFilesIn", opt$fastq,"--outSAMattributes NH HI AS nM NM XS",
-                               "--outFileNamePrefix",name_prefix,"--outSAMtype BAM SortedByCoordinate --twopassMode Basic",
-                               "--outFilterMatchNmin 35 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6")
+STAR_mapping_command = paste("STAR --runThreadN ",N_thread," --outBAMsortingThreadN ",N_thread_sort," --outBAMsortingBinsN ", N_bins, " --genomeDir ",Index_genome," --readFilesIn ", opt$fastq," --outSAMattributes NH HI AS nM NM XS ",
+                               "--outFileNamePrefix ",name_prefix," --outSAMtype BAM SortedByCoordinate --twopassMode Basic ",
+                               "--outFilterMatchNmin 35 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6 > ", name_prefix, "_STAR_MAPPING.log", sep="")
 
 #If the file is in the format .gz then we need to add an additional paramter :
 if (is_gz_file==TRUE) {
@@ -576,7 +576,7 @@ start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
 ## Assigning reads to transcripts using Rsubread Featurecounts
-featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -M --primary -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam", sep="")
+featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -M --primary -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
@@ -599,7 +599,7 @@ cat("Done.  \n", file=log, append=TRUE)
 ## This will deduplicate reads 
 cat("Starting UMI-tools Count.  \n", file=log, append=TRUE)
 command_umi_tools = paste("umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I ",
-                          temp_output_dir,"/Assigned_sorted.bam  -S ",temp_output_dir, "/Expression_table.tsv --wide-format-cell-counts", sep="")
+                          temp_output_dir,"/Assigned_sorted.bam  -S ",temp_output_dir, "/Expression_table.tsv --wide-format-cell-counts > ", name_prefix, "_UMITOOLS_COUNTS.log", sep="")
 system(command_umi_tools)
 cat("Done.  \n", file=log, append=TRUE)
 ## -----------------------------------------------------------------------------------
