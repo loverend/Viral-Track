@@ -598,7 +598,7 @@ cat("Done.  \n", file=log, append=TRUE)
 ## Final command : Umi-tools command
 ## This will deduplicate reads 
 cat("Starting UMI-tools Count.  \n", file=log, append=TRUE)
-command_umi_tools = paste("umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XT --per-cell -I ",
+command_umi_tools = paste("umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I ",
                           temp_output_dir,"/Assigned_sorted.bam  -S ",temp_output_dir, "/Expression_table.tsv --wide-format-cell-counts", sep="")
 system(command_umi_tools)
 cat("Done.  \n", file=log, append=TRUE)
