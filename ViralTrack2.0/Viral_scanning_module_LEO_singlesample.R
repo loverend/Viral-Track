@@ -20,7 +20,7 @@ suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
+  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK/Update', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
@@ -28,7 +28,7 @@ option_list <- list(
   make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub100k.fa', help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="Viral_Track", help="Run Name [default]"),
   make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference.txt", help="Path to VirusSite annotation file [default]"),
-  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
+  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="FALSE", help="Path to GTF file. If no GTF file exists use FALSE and it will be created [default]")
 )
 
