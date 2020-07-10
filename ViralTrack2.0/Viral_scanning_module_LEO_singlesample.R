@@ -576,7 +576,7 @@ start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
 ## Assigning reads to transcripts using Rsubread Featurecounts
-featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -M --primary -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
+featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
