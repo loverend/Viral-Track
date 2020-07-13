@@ -20,7 +20,7 @@ suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK/Update', type="character", help="Path to output directory"),
+  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
@@ -106,6 +106,9 @@ suppressMessages(library(ShortRead))
 suppressMessages(library(doParallel))
 suppressMessages(library(GenomicAlignments))
 suppressMessages(library(Matrix))
+
+## Notin Function:
+`%notin%` <- Negate(`%in%`)
 
 ## Setting up log.file: 
 name <- unlist(strsplit(opt$fastq,"/",fixed = T))
@@ -261,8 +264,10 @@ cat("\t 5.b  Viral BAM Files Extracted. \n", file=log, append = TRUE)
 # Creating HUMAN BAM FILES
 temp_chromosome_count_human = read.table(temp_chromosome_count_path,header = F,row.names = 1)
 colnames(temp_chromosome_count_human) = c("Chromosome_length","Mapped_reads","Unknown")
-Human_chr = c("X","Y","MT",as.character(1:23)) 
-temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in%Human_chr,]
+virus_sequence_names <- grep("refseq", rownames(temp_chromosome_count_human), value=TRUE)
+human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromosome_count_human) %notin% virus_sequence_names]
+human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
+temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in% human_chromosomes ,]
 temp_chromosome_count_human = temp_chromosome_count_human[temp_chromosome_count_human$Mapped_reads>Minimal_read_mapped,]
 dir.create(paste(temp_output_dir,"/HUMAN_BAM_files",sep = ""))
 foreach(i=rownames(temp_chromosome_count_human)) %dopar% {
@@ -296,7 +301,8 @@ if(length(list.files(dir))>0){
     z <- rownames(temp_chromosome_count)[i]
     BAM_file= readGAlignments(paste(temp_output_dir,"/Viral_BAM_files/",z,".bam",sep = ""),param = ScanBamParam(what =scanBamWhat()))
     #Let's check the diversity of the reads
-    Viral_reads = unique(BAM_file@elementMetadata$seq)
+	#Lets use just the reads that map uniquely to calculate the statistics!!!
+    Viral_reads = unique(BAM_file@elementMetadata$seq[BAM_file@elementMetadata$mapq==255])
     Viral_reads_contents = alphabetFrequency(Viral_reads,as.prob =T )
     Viral_reads_contents = Viral_reads_contents[,c("A","C","G","T")]
     
@@ -332,7 +338,7 @@ if(length(list.files(dir))>0){
     Mean_dust_score = NA
     Percent_high_quality_reads = NA
     if ("ShortRead"%in%installed.packages()){
-      DUST_score = dustyScore(BAM_file@elementMetadata$seq)
+      DUST_score = dustyScore(BAM_file@elementMetadata$seq[BAM_file@elementMetadata$mapq==255])
       Mean_dust_score = mean(DUST_score)
       Percent_high_quality_reads =  sum(DUST_score<500)/length(DUST_score)
     }
@@ -401,14 +407,16 @@ colnames(Read_count_temp) = c("Chromosome_length","Mapped_reads","Unknown")
 Read_count_temp = Read_count_temp[Read_count_temp$Mapped_reads!=0,]
 Read_count_temp$Chr <- rownames(Read_count_temp)
 
+virus_sequence_names <- grep("refseq", rownames(Read_count_temp), value=TRUE)
+human_chromosomes <- rownames(Read_count_temp)[rownames(Read_count_temp) %notin% virus_sequence_names]
+human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
+
 ## Need to rename human chr to append chr to make it easy to grep:
-for (x in 1:22){
+for (x in human_chromosomes){
   Read_count_temp[["Chr"]] <- with(Read_count_temp, ifelse(Chr == x , paste0("chr", Chr), Chr))
 }
 
-Read_count_temp[["Chr"]] <- with(Read_count_temp, ifelse(Chr == "X", paste0("chr", Chr), Chr))
-Read_count_temp[["Chr"]] <- with(Read_count_temp, ifelse(Chr == "Y", paste0("chr", Chr), Chr))
-Read_count_temp[["Chr"]] <- with(Read_count_temp, ifelse(Chr == "MT", paste0("chr", Chr), Chr))
+## Set as Rownames
 rownames(Read_count_temp) <- Read_count_temp$Chr
 Read_count_temp$Chr <- NULL
 
@@ -615,6 +623,9 @@ dir.create(MTX_dir)
 file_tsv = paste0(temp_output_dir, "/Expression_table.tsv")
 expression_table <- read.table(file = file_tsv, sep = '\t', header = TRUE, row.names = 1)
 
+# Notin function:
+`%notin%` <- Negate(`%in%`)
+
 # Convert to data-frame to allow for Calculation of Summary Statistics
 expression_table <- as.data.frame(t(expression_table))
 viral_cols <- grep("refseq", colnames(expression_table), value=TRUE)
@@ -624,11 +635,13 @@ mito_cols <- grep("MT_1", colnames(expression_table), value=TRUE)
 cat("Calculating Meta Data Percentages.  \n", file=log, append=TRUE)
 # Calculating meta data percentages:
 # Percent human reads per cell:
-cat("\t Human Read Percentage Calculated.  \n", file=log, append=TRUE)
-expression_table$percent_human_reads <- (rowSums(expression_table[, c(human_cols)]))/ (rowSums(expression_table))* 100
+cat("\t Human Read Percentage/counts Calculated.  \n", file=log, append=TRUE)
+expression_table$human_chromosome_percent <- (rowSums(expression_table[, c(human_cols)]))/ (rowSums(expression_table))* 100
+expression_table$human_chromosome_counts <- rowSums(expression_table[, c(human_cols)])
 # Percent mito reads per cell:
 cat("\t Human Mitochondrial Read Percentage Calculated.  \n", file=log, append=TRUE)
-expression_table$percent_mitochondrial_reads <- (expression_table[, c(mito_cols)])/ (rowSums(expression_table))* 100
+expression_table$human_mitochondrial_percent <- (expression_table[, c(mito_cols)])/ (rowSums(expression_table))* 100
+expression_table$human_mitochondrial_counts <- expression_table[, c(mito_cols)]
 
 # Percent viral read per cell - for all viruses:
 
@@ -658,6 +671,9 @@ if(length(viral_cols)>= 1){
   }
 } 
 cat("Finished Calculating Viral Percentages. \n", file=log, append=TRUE)
+
+## Subsetting Matrix to remove individualised human counts and leave a Summary:
+expression_table <- expression_table[, colnames(expression_table) %notin% human_cols]
 
 ## All percentages calculated
 ## Converting Table To SPARSE MATRIX FORMAT

@@ -1,4 +1,3 @@
-/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8291066/SRR8291066_S1_L001_R2_001_extracted.fastq.gz
 /well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8437610/SRR8437610_S1_L001_R2_001_extracted.fastq.gz
 /well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8437614/SRR8437614_S1_L001_R2_001_extracted.fastq.gz
 /well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/SRR8427168_S1_L001_R2_001_extracted.fastq.gz
