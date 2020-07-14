@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #$ -cwd
-#$ -N Viral_TRACK_LCLS
+#$ -N ViralTrackMM
 #$ -q short.qc
 #$ -pe shmem 10
 

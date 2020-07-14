@@ -114,7 +114,7 @@ suppressMessages(library(Matrix))
 name <- unlist(strsplit(opt$fastq,"/",fixed = T))
 sample_name <- name[length(name)]
 sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name) 
-log <-  paste0(opt$outputdir, "/ViralTrack_Scanning_Module1_", sample_name, ".log")
+log <-  paste0(opt$outputdir, "/ViralTrack_MultiMapping_", sample_name, ".log")
 
 ## Checking the parameters values
 cat("ViralTrack_Scanning.2.0 by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
