@@ -20,7 +20,7 @@ suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK/Update', type="character", help="Path to output directory"),
+  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
@@ -142,7 +142,8 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
 N_bins = opt$bins
-Output_directory = opt$outputdir 
+Output_directory = paste0(opt$outputdir, "/Unique_Mapping_Analysis")
+dir.create(Output_directory)
 Name_run = opt$runname    
 Index_genome = opt$indexgenome 
 Minimal_read_mapped = as.numeric(opt$minreads)
@@ -182,7 +183,7 @@ name_prefix = paste0(temp_output_dir, "/", name_target)
 #We construct a complex command 
 STAR_mapping_command = paste("STAR --runThreadN ",N_thread," --outBAMsortingThreadN ",N_thread_sort," --outBAMsortingBinsN ", N_bins, " --genomeDir ",Index_genome," --readFilesIn ", opt$fastq," --outSAMattributes NH HI AS nM NM XS ",
                                "--outFileNamePrefix ",name_prefix," --outSAMtype BAM SortedByCoordinate --twopassMode Basic ",
-                               "--outFilterMatchNmin 35 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6 > ", name_prefix, "_STAR_MAPPING.log", sep="")
+                               "--outFilterMatchNmin 35 --outMultimapperOrder Random --runRNGseed 1 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6 > ", name_prefix, "_STAR_MAPPING.log", sep="")
 
 #If the file is in the format .gz then we need to add an additional paramter :
 if (is_gz_file==TRUE) {

@@ -22,8 +22,9 @@ SAMPLES_FILE=$1
 SAMPLE=$(awk -F '\t' "{if (NR==$SGE_TASK_ID) print \$1}" $SAMPLES_FILE)      # Sample ID
 
 # RunJob
-CMD="Rscript /well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/ViralTrack2.0/Viral_scanning_module_LEO_singlesample.R -f ${SAMPLE} -n 10"
+CMD="Rscript /well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/ViralTrack2.0/Viral_Track_Multimapping.R -f ${SAMPLE} -n 10"
 eval "${CMD}"
+
 
 # Done 
 echo
