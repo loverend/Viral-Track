@@ -2,7 +2,7 @@
 
 #$ -cwd
 #$ -N Viral_TRACK_LCLS
-#$ -q long.qc
+#$ -q short.qc
 #$ -pe shmem 10
 
 # Load software modules

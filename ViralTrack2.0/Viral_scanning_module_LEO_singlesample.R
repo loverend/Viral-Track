@@ -20,7 +20,7 @@ suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
+  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK/Update', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
@@ -229,11 +229,12 @@ temp_chromosome_count = read.table(temp_chromosome_count_path,header = F,row.nam
 colnames(temp_chromosome_count) = c("Chromosome_length","Mapped_reads","Unknown")
 
 # Filtering Table removing Human sequences and the removing viruses with less than a given threshold of reads:
-Chromosome_to_remove = c("X","Y","MT", "*", as.character(1:23))
-temp_chromosome_count = temp_chromosome_count[!rownames(temp_chromosome_count)%in%Chromosome_to_remove,] 
+virus <- grep("refseq", rownames(temp_chromosome_count), value=TRUE)
+temp_chromosome_count <- temp_chromosome_count[rownames(temp_chromosome_count) %in% virus, ]
 temp_chromosome_count = temp_chromosome_count[temp_chromosome_count$Mapped_reads>=Minimal_read_mapped,]
 no_viruses <- length(temp_chromosome_count[,1])
 cat(paste0("\t 4. Identified ", no_viruses, " viruses with at least ", Minimal_read_mapped, " Reads in input Fastq. \n"), file=log, append = TRUE)
+
 
 # We first create a sub-directory to export the sam files corresponding to each virus
 newdir <- paste(temp_output_dir,"/Viral_BAM_files",sep = "")
