@@ -270,7 +270,6 @@ virus_sequence_names <- grep("refseq", rownames(temp_chromosome_count_human), va
 human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromosome_count_human) %notin% virus_sequence_names]
 human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
 temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in% human_chromosomes ,]
-temp_chromosome_count_human = temp_chromosome_count_human[temp_chromosome_count_human$Mapped_reads>Minimal_read_mapped,]
 dir.create(paste(temp_output_dir,"/HUMAN_BAM_files",sep = ""))
 foreach(i=rownames(temp_chromosome_count_human)) %dopar% {
   temp_export_bam_command = paste("samtools view -b ",temp_sorted_bam," \'",i,"\'"," > \'",temp_output_dir,"/HUMAN_BAM_files/",i,".bam\'",sep = "")
@@ -373,7 +372,11 @@ colnames(QC_result) = c("N_reads","N_unique_reads","Percent_uniquely_mapped",
                         c("A","C","G","T"),"Sequence_entropy","Spatial_distribution","Longest_contig",
                         "DUST_score","Percent_high_quality_reads")
 QC_result <- as.data.frame(QC_result)
+QC_result <- sapply( QC_result, as.numeric )
+QC_result <- as.data.frame(QC_result)
+if(length(QC_result[,1])>0){
 rownames(QC_result) = rownames(temp_chromosome_count)
+} 
 QC_result = QC_result[QC_result$N_unique_reads>0,]
 
 ### ------------------------------------------------------------------------------------
@@ -463,36 +466,40 @@ Color_vector = c("lightskyblue1","orange","grey80")
 barplot(Mapping_information$Mapping_result,ylim=c(0,100),xlim=c(0,5),ylab="Percentage of reads (%)",col=Color_vector,cex.lab=1.5,cex.axis = 1.5, main = "Percentage of Reads Mapped")
 legend(x = 1.5,y=50,legend = c("Unmapped","Mapped to multiple loci","Uniquely mapped"),bty="n",fill = Color_vector[length(Color_vector):1],cex = 1.5)
 # Size of mapping, insertion and deletion
-barplot(Mapping_information$Length_vector,col="black",names.arg = c("Mapping Length","Insertion Length","Deletion length"), main = "Size of Mapped Reads",  horiz = T,xlim=c(0,max(Mapping_information$Length_vector[1])*1.2),xlab="Nucleotide length",cex.lab=1.3,cex.axis = 1.3,cex.names=1.3)
+barplot(Mapping_information$Length_vector,col="black",names.arg = c("Mapping Length","Insertion Length","Deletion length"), main = "Size of Mapped Reads",  horiz = TRUE, xlim=c(0,max(Mapping_information$Length_vector[1])*1.2),xlab="Nucleotide length",cex.lab=1.3,cex.axis = 1.3,cex.names=1.3)
 #Rate of mismatch, deletion and insertion
-barplot(Mapping_information$Rate_vector,col="black",names.arg = c("Mismatch rate","Insertion rate","Deletion rate"), main = "Rate of Mismatching", horiz = T,xlim=c(0,max(Mapping_information$Rate_vector[1])*1.2),xlab="Rate (%)",cex.lab=1.3,cex.axis = 1.3,cex.names=1.3)
+barplot(Mapping_information$Rate_vector,col="black",names.arg = c("Mismatch rate","Insertion rate","Deletion rate"), main = "Rate of Mismatching", horiz = TRUE, xlim=c(0,max(Mapping_information$Rate_vector[1])*1.2),xlab="Rate (%)",cex.lab=1.3,cex.axis = 1.3,cex.names=1.3)
 # Ratio 
 Color_vector = c("darkred","grey")
 barplot(Ratio_host_virus,ylim=c(0,100),xlim=c(0,5),ylab="Mapping events (%)",col=Color_vector,cex.lab=1.5,cex.axis = 1.5, main = "Ratio of Host:Viral Mapping")
 legend(x = 1.5,y=50,legend = c("Viral mapping","Host mapping"),bty="n",fill = Color_vector[length(Color_vector):1],cex = 1.5)
 
-##removed if strings to colours ==0 as it wont actually need to plot anything and this caused errors
+##Get colour strings
 if (length(detected_virus) > 0) {
   Color_vector= string.to.colors(factor(rownames(QC_result)%in%detected_virus),colors = c("orange","green")) ##Viral sequences that passed QC : green
 }
 
+if (length(QC_result[,1]) > 0 & length(detected_virus)==0) {
+    Color_vector= string.to.colors(factor(rownames(QC_result)%in%detected_virus),colors = c("orange")) ##Viral sequences that passed QC : green
+}
+
 # Plot Number of Reads > 50 (filtering threshold)
-if(length(rownames(Mapping_selected_virus))>=1){
-  plot(QC_result$N_reads,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector,log="x",cex=1.5,xlab="Number of Mapped Reads",ylab="% Mapped genome",ylim=c(0,100),cex.lab=1.5,main="Viral Summary: Read Count")
+if(length(rownames(QC_result))>0){
+  plot(QC_result$N_reads,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector,log="x",cex=1.5,xlab="Number of Mapped Reads",ylab="% Mapped genome",ylim=c(0,100),cex.lab=1.5,main="Viral Summary Multimapping Reads: Read Count")
   abline(h=5,lwd=2,lty=2,col="grey")
   abline(v=Minimal_read_mapped,lwd=2,lty=2,col="grey")
 
   # Plot Number of Unique Reads > 50 (filtering threshold)
-  plot(QC_result$N_unique_reads,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector,log="x",cex=1.5,xlab="Number of Uniquely Mapped Reads",ylab="% Mapped genome",ylim=c(0,100),cex.lab=1.5,main="Viral Summary: Unique Read Count")
+  plot(QC_result$N_unique_reads,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector,log="x",cex=1.5,xlab="Number of Uniquely Mapped Reads",ylab="% Mapped genome",ylim=c(0,100),cex.lab=1.5,main="Viral Summary Multimapping Reads: Unique Read Count")
   abline(h=5,lwd=2,lty=2,col="grey")
 
   #Second QC for the viral hits 
-  plot(QC_result$Sequence_entropy,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector, cex=1.5,xlab="Sequence Complexity",ylab="% Mapped genome",cex.lab=1.5,ylim=c(0,100),main="Viral Summary: Sequence Complexity")
+  plot(QC_result$Sequence_entropy,QC_result$Spatial_distribution*100,pch=21,bg=Color_vector, cex=1.5,xlab="Sequence Complexity",ylab="% Mapped genome",cex.lab=1.5,ylim=c(0,100),main="Viral Summary Multimapping Reads: Sequence Complexity")
   abline(h=5,lwd=2,lty=2,col="grey")
   abline(v=1.2,lwd=2,lty=2,col="grey")
 
   #Third QC for the viral hits 
-  plot(QC_result$Longest_contig,QC_result$DUST_score,pch=21,bg=Color_vector, cex=1.5,xlab="Longest Contig (nt)",ylab="DUST Score",cex.lab=1.4,main="Viral Summary: DUST Score")
+  plot(QC_result$Longest_contig,QC_result$DUST_score,pch=21,bg=Color_vector, cex=1.5,xlab="Longest Contig (nt)",ylab="DUST Score",cex.lab=1.4,main="Viral Summary Multimapping Reads: DUST Score")
   abline(v=3*Mean_mapping_length,lwd=2,lty=2,col="grey")
 
 #Number of reads for each filtered virus
