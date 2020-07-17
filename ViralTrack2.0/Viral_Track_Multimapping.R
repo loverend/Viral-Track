@@ -446,7 +446,6 @@ if(length(Mapping_selected_virus[, 1])>0) {
   Mapping_selected_virus$Name_sequence<- c()
   for (i in 1:length(Mapping_selected_virus[, 1])){
     z <- Mapping_selected_virus[i, 3]
-    print(z)
     z <- unlist(strsplit(z,"|",fixed = T))[2]
     Mapping_selected_virus$Name_sequence[i] <- z
   } 
