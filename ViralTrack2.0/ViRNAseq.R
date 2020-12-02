@@ -1,5 +1,5 @@
 ## ---------------------------
-## Script name: VIRAL TRACK: Viral_Scanning: Module 1 - MAPPING
+## Script name: ViRNA_SEQ: Viral_Scanning: Module 1 - MAPPING
 ## Function: Map Single Cell Virals from individual FASTQ file using STAR.
 ## Author: Pierre Bost (as used in Viral TRACK paper). Updated by Lauren Overend (LEO) - Wellcome Trust Centre for Human Genetics
 ##
@@ -13,6 +13,7 @@
 ##   
 ##
 ## ---------------------------
+## Reading in Commandline Arguments. 
 if(nzchar(system.file(package = "optparse"))==FALSE){
   stop("optparse not installed. Terminating. \n")
 }
@@ -20,13 +21,14 @@ suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/LCL_VIRALTRACK', type="character", help="Path to output directory"),
+  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/VIRUS/TESTING', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
-  make_option(c("-m", "--minreads"), action="store", type="integer", default=50, help="Minimum number of mapped viral reads [default]"),
+  make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of mapped viral reads [default]"),
+  make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub10k.fa', help="Path to input FASTQ file [default]"),
-  make_option(c("-r", "--runname"), action="store", type="character", default="Viral_Track", help="Run Name [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub100k.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-r", "--runname"), action="store", type="character", default="ViRNA_Seq", help="Run Name [default]"),
   make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference.txt", help="Path to VirusSite annotation file [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="FALSE", help="Path to GTF file. If no GTF file exists use FALSE and it will be created [default]")
@@ -114,10 +116,10 @@ suppressMessages(library(Matrix))
 name <- unlist(strsplit(opt$fastq,"/",fixed = T))
 sample_name <- name[length(name)]
 sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name) 
-log <-  paste0(opt$outputdir, "/ViralTrack_UniqueMapping_", sample_name, ".log")
+log <-  paste0(opt$outputdir, "/ViRNA_SEQ_UniqueMapping_", sample_name, ".log")
 
 ## Checking the parameters values
-cat("ViralTrack_Scanning.2.0 by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
+cat("ViRNA_SEQ_UniqueMapping by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
 cat(paste0("Run Name: ", opt$runname, "\n"), file=log, append=TRUE)
 start_time_1 <- Sys.time()
 cat(paste0("Start time: ", start_time_1, "\n"), file=log, append=TRUE)
@@ -134,15 +136,15 @@ cat(paste0("--bins: ", opt$bins, "\n"), file=log, append = TRUE)
 cat(paste0("--fastq: ", opt$fastq, "\n"), file=log, append = TRUE)
 cat(paste0("--runname: ", opt$runname, "\n"), file=log, append = TRUE)
 cat(paste0("--viralannotation: ", opt$viralannotation, "\n"), file=log, append = TRUE)
-cat(paste0("--auxfunctions: ", opt$gtffile, "\n"), file=log, append = TRUE)
-cat(paste0("--gtffile: ", opt$auxfunctions, "\n"), file=log, append = TRUE)
+cat(paste0("--auxfunctions: ", opt$auxfunctions, "\n"), file=log, append = TRUE)
+cat(paste0("--gtffile: ", opt$gtffile, "\n"), file=log, append = TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 
 ## Renaming Paramaters to original variable names as in ViralTrack1.0 and sourcing auxillary funtions
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
 N_bins = opt$bins
-Output_directory = paste0(opt$outputdir, "/Unique_Mapping_Analysis")
+Output_directory = paste0(opt$outputdir, "/ViRNA_SEQ_Unique_Mapping_Analysis")
 dir.create(Output_directory)
 Name_run = opt$runname    
 Index_genome = opt$indexgenome 
@@ -407,7 +409,9 @@ path_to_Log_file = paste0(temp_output_dir, "/", name_target, "Log.final.out")
 Mapping_information = Extraction_Log_final(path_to_Log_file)
 Mean_mapping_length = Mapping_information$Length_vector[1]
 cat("\t 8. Filtering on QC Metrics. \n", file=log, append = TRUE)
-detected_virus = rownames(QC_result[QC_result$Sequence_entropy>1.2 & QC_result$N_unique_reads>0 & QC_result$Longest_contig>3*Mean_mapping_length & QC_result$Spatial_distribution>0.05,])
+
+## DO FILTERING 
+detected_virus = rownames(QC_result[QC_result$N_reads > opt$t & QC_result$Sequence_entropy>1.2 & QC_result$N_unique_reads>0 & QC_result$Longest_contig>3*Mean_mapping_length & QC_result$Spatial_distribution>0.05,])
 
 ## Returning QC Metrics for viruses that passed Filtering 
 Filtered_QC=QC_result[detected_virus,]
@@ -539,7 +543,7 @@ if(length(rownames(QC_result))>0){
 dev.off() 
 
 cat("\t 11. Plotting QC plots Done. \n", file=log, append = TRUE)
-cat("\t ----------------------------------------------\n", file=log, append=TRUE)
+cat("\n ----------------------------------------------\n", file=log, append=TRUE)
 cat("QC PDF and Summary Statistics Done and Saved.  \n", file=log, append = TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 
@@ -556,7 +560,8 @@ if (length(rownames(Filtered_QC)) >= 1){
   list_BAM_files = list.files(list_BAM_files,full.names=T)
   names(list_BAM_files) = selected_virus
   
-  list_BAM_files = list_BAM_files[rownames(Filtered_QC)]
+  ## all identified viruses not just those that pass filtering 
+  list_BAM_files = list_BAM_files[rownames()]
   list_BAM_files = paste("\'", list_BAM_files, "\'", sep = "")
   
   Merging_BAM_commad = paste("samtools merge",paste(temp_output_dir,"/Merged_viral_mapping.bam",sep = ""),list_BAM_files)
@@ -580,7 +585,7 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 
 ## ------------------------------------------------------------------------------------
 cat("----------------------------------------------\n", file=log, append=TRUE)
-cat("ViralTrack_Demultiplexing 2.0  \n", file=log, append=TRUE)
+cat("ViralTrack_FeatureCounting  \n", file=log, append=TRUE)
 start_time <- Sys.time()
 cat("Start Time: ", start_time, "\n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
@@ -618,24 +623,94 @@ end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
 cat("Feature Counts Complete.  \n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
-  
-## We now have to sort the BAM file:
-cat("Sorting Bam File.  \n", file=log, append=TRUE)
-command_sort =paste("samtools sort ",temp_output_dir,"/Reads_to_demultiplex.bam.featureCounts.bam -o ",temp_output_dir,"/Assigned_sorted.bam",sep = "")
-system(command_sort)
-cat("Done.  \n", file=log, append=TRUE)
 
-## We now index the BAM file:
-cat("Indexing Bam File.  \n", file=log, append=TRUE)
-command_index =paste("samtools index ",temp_output_dir,"/Assigned_sorted.bam",sep = "")
-system(command_index)
-cat("Done.  \n", file=log, append=TRUE)
-  
-## Final command : Umi-tools command
-## This will deduplicate reads 
-cat("Starting UMI-tools Count.  \n", file=log, append=TRUE)
-command_umi_tools = paste("umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS ",
-                          temp_output_dir,"/Assigned_sorted.bam  -S ",temp_output_dir, "/Expression_table.tsv --wide-format-cell-counts > ", name_prefix, "_UMITOOLS_COUNTS.log", sep="")
-system(command_umi_tools)
-cat("Done.  \n", file=log, append=TRUE)
+#--------------------------------------------------------------------------------
+## Read in counts.txt file (output from feature counts) 
+
+RNA_counts <- read.delim(paste0(temp_output_dir, "/counts.txt"), header = TRUE, sep = "\t", skip="1")
+ids <- c(rownames(QC_result), human_chromosomes)
+RNA_counts <- RNA_counts[RNA_counts$Chr %in% ids,]
+colnames(RNA_counts)[7] <- "count"
+RNA_counts[,"VirusFilter"] <- NA
+for (j in 1:length(RNA_counts$Chr)){
+	print(j)
+	i <- RNA_counts$Ch[j]
+	print(i)
+	print(RNA_counts$VirusFilter[i])
+	if (i %in% human_chromosomes) {
+		RNA_counts$VirusFilter[j] <- "NA"
+	} else if (i %in% detected_virus){
+		RNA_counts$VirusFilter[j] <-"TRUE"
+	} else {
+		RNA_counts$VirusFilter[j] <- "FALSE"
+	}
+}
+
+## -------------------------------------------------------------------
+## Summarised the information in a counts file 
+
+cat("\n 9. Exporting RNA_SEQ COUNTS to files. \n", file=log, append = TRUE)
+##Exporting the tables of the QC analysis
+
+VIRNA_COUNTS_SUMMARY <- paste0(temp_output_dir, "/", "VIRNAseq_COUNTS_SUMMARY.txt")
+
+write.table(file = VIRNA_COUNTS_SUMMARY, x = RNA_counts, quote = F,sep = "\t")
+cat("\n Exporting RNA_SEQ Counts summary... DONE! \n", file=log, append = TRUE)
+
 ## -----------------------------------------------------------------------------------
+
+
+## Now we just move files of interest into the Report directory: 
+cat("Creating Report Directory. \n", file=log, append=TRUE)
+Report_dir <- paste0(temp_output_dir, "/Reports")
+dir.create(Report_dir)
+cat("Moving Useful Files into Report Directory. \n", file=log, append=TRUE)
+move <- paste0("mv ", temp_output_dir, "/VIRNAseq_COUNTS_SUMMARY.txt ", Report_dir )
+system(move)
+move <- paste0("mv ", pdf_name, " ", Report_dir )
+system(move)
+move <- paste0("mv ", filteredoutfile, " ", Report_dir )
+system(move)
+move <- paste0("mv ", unfilteredoutfile, " ", Report_dir )
+
+
+
+features <- paste0(temp_output_dir, "/", sample_name, "_FEATURE_COUNTS.log")
+move <- paste0("mv ", features, " ", Report_dir )
+system(move)
+star <- paste0(temp_output_dir, "/", sample_name, "Log.final.out")
+move <- paste0("mv ", star, " ", Report_dir )
+system(move)
+
+star <- paste0(temp_output_dir, "/", sample_name, "Log.out")
+move <- paste0("mv ", star, " ", Report_dir )
+system(move)
+
+star <- paste0(temp_output_dir, "/counts.txt.summary")
+move <- paste0("mv ", star, " ", Report_dir )
+system(move)
+
+cat("Done. \n", file=log, append=TRUE)
+
+clear <- paste0("rm ", temp_output_dir, "/*" )
+system(clear)
+
+
+
+
+## -----------------------------------------------------------------------------------
+
+end_time <- Sys.time()
+Time_difference <- end_time - start_time
+cat("Run Time ", Time_difference, "\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat(" VIRNA_seq PIPELINE COMPLETE. \n", file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+
+## -----------------------------------------------------------------------------------quit()
+
+
+
+
+
