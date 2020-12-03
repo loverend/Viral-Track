@@ -569,6 +569,7 @@ if(length(rownames(QC_result))>0){
   p4 <- ggplot(QC_result, aes(color=PassedFiltering, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: DUST Score")
   plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, ncol=3, labels = "AUTO"))
 #Number of reads for each filtered virus
+  par(las=1, mfrow=c(3,3), mar=c(6,6,6,4))
   if (length(detected_virus) > 0) {
     par(las=0)
     barplot(Mapping_selected_virus$All_mapping[nrow(Mapping_selected_virus):1],
