@@ -1,5 +1,5 @@
 ## ---------------------------
-## Script name: ViRNA_SEQ: Viral_Scanning: Module 1 - MAPPING
+## Script name: ViRNA_SEQ: Viral_Scanning: Module 1 - MultiMAPPING
 ## Function: Map Single Cell Virals from individual FASTQ file using STAR.
 ## Author: Pierre Bost (as used in Viral TRACK paper). Updated by Lauren Overend (LEO) - Wellcome Trust Centre for Human Genetics
 ##
@@ -129,11 +129,11 @@ suppressMessages(library(cowplot))
 name <- unlist(strsplit(opt$fastq,"/",fixed = T))
 sample_name <- name[length(name)]
 sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name) 
-log <-  paste0(opt$outputdir, "/ViRNA_SEQ_UniqueMapping_", sample_name, ".log")
+log <-  paste0(opt$outputdir, "/ViRNA_SEQ_MultiMapping_", sample_name, ".log")
 
 ##-------------------------------------------------------
 ## Checking the parameters values
-cat("ViRNA_SEQ_UniqueMapping by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
+cat("ViRNA_SEQ_MultiMapping by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
 cat(paste0("Run Name: ", opt$runname, "\n"), file=log, append=TRUE)
 start_time_1 <- Sys.time()
 cat(paste0("Start time: ", start_time_1, "\n"), file=log, append=TRUE)
@@ -159,7 +159,7 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
 N_bins = opt$bins
-Output_directory = paste0(opt$outputdir, "/ViRNA_SEQ_Unique_Mapping_Analysis")
+Output_directory = paste0(opt$outputdir, "/ViRNA_SEQ_Multi_Mapping_Analysis")
 dir.create(Output_directory)
 Name_run = opt$runname    
 Index_genome = opt$indexgenome 
@@ -318,12 +318,11 @@ if(length(list.files(dir))>0){
 ## Generation of the QC repor
   for(i in 1:length(rownames(temp_chromosome_count))) {
     z <- rownames(temp_chromosome_count)[i]
-    BAM_file_1= readGAlignments(paste(temp_output_dir,"/Viral_BAM_files/",z,".bam",sep = ""),param = ScanBamParam(what =scanBamWhat()))
-    BAM_file= BAM_file_1[BAM_file_1@elementMetadata$mapq==255]
+    BAM_file=readGAlignments(paste(temp_output_dir, "/Viral_BAM_files/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
 	if(length(BAM_file) >0){
 		#Let's check the diversity of the reads
 		#Lets use just the reads that map uniquely to calculate the statistics!!!
-		Viral_reads = unique(BAM_file@elementMetadata$seq[BAM_file@elementMetadata$mapq==255])
+		Viral_reads = unique(BAM_file@elementMetadata$seq)
 		Viral_reads_contents = alphabetFrequency(Viral_reads,as.prob=TRUE)
 		Viral_reads_contents = Viral_reads_contents[,c("A","C","G","T")]
 		
@@ -352,20 +351,20 @@ if(length(list.files(dir))>0){
 		
 		##... the number of mapped reads and unique mapped reads
 		N_unique_mapped_reads = sum(BAM_file@elementMetadata$mapq==255) ##Code specific to STAR aligner.... 
-		N_mapped_reads = length(BAM_file_1)
+		N_mapped_reads = length(BAM_file)
 		Percent_uniquely_mapped = N_unique_mapped_reads/N_mapped_reads
 		
 		##DUSTy score identifies low-complexity sequences, in a manner inspired by the dust implementation in BLAST
 		Mean_dust_score = NA
 		Percent_high_quality_reads = NA
 		if ("ShortRead"%in%installed.packages()){
-		  DUST_score = dustyScore(BAM_file@elementMetadata$seq[BAM_file@elementMetadata$mapq==255])
+		  DUST_score = dustyScore(BAM_file@elementMetadata$seq)
 		  Mean_dust_score = mean(DUST_score)
 		  Percent_high_quality_reads =  sum(DUST_score<500)/length(DUST_score)
 		}
 	} else { 
 		N_unique_mapped_reads = sum(BAM_file@elementMetadata$mapq==255) ##Code specific to STAR aligner.... 
-		N_mapped_reads = length(BAM_file_1)
+		N_mapped_reads = length(BAM_file)
 		Percent_uniquely_mapped = N_unique_mapped_reads/N_mapped_reads
 		Mean_read_quality <- "NA"
 		Sd_read_quality <- "NA"
@@ -427,7 +426,7 @@ Mean_mapping_length = Mapping_information$Length_vector[1]
 cat("\t 8. Filtering on QC Metrics. \n", file=log, append = TRUE)
 
 ## DO FILTERING 
-detected_virus = rownames(QC_result[QC_result$N_reads > opt$t & QC_result$Sequence_entropy>1.2 & QC_result$N_unique_reads>0 & QC_result$Longest_contig>3*Mean_mapping_length & QC_result$Spatial_distribution>0.05,])
+detected_virus = rownames(QC_result[QC_result$N_reads > opt$t & QC_result$Sequence_entropy>1.2 & QC_result$Longest_contig>3*Mean_mapping_length & QC_result$Spatial_distribution>0.05,])
 
 ## Add on metric True/False filtering to QC tabel which is used later in plotting: 
 QC_result[,"PassedFiltering"] <- NA
@@ -564,10 +563,10 @@ if ("FAIL" %notin% levels(QC_result$PassedFiltering)){
 # Plot Number of Reads > 50 (filtering threshold)
 if(length(rownames(QC_result))>0){
   
-  p1 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("% Mapped genome") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey")+ geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Unique Reads: Multimapping Read Count")
-  p2 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_unique_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Uniquely Mapped Reads") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Unique Reads: Unique Read Count")
-  p3 <- ggplot(QC_result, aes(color=PassedFiltering, x=Sequence_entropy, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Sequence Entropy") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + geom_vline(xintercept=1.2, linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: Unique Read Sequence Complexity")
-  p4 <- ggplot(QC_result, aes(color=PassedFiltering, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: DUST Score")
+  p1 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("% Mapped genome") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey")+ geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multimapping Read Count")
+  p2 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_unique_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Uniquely Mapped Reads") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multi Read Count")
+  p3 <- ggplot(QC_result, aes(color=PassedFiltering, x=Sequence_entropy, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Sequence Entropy") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + geom_vline(xintercept=1.2, linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: Multi Read Sequence Complexity")
+  p4 <- ggplot(QC_result, aes(color=PassedFiltering, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: DUST Score")
   plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, ncol=3, labels = "AUTO"))
 #Number of reads for each filtered virus
   if (length(detected_virus) > 0) {
@@ -664,7 +663,7 @@ start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
 ## Assigning reads to transcripts using Rsubread Featurecounts
-featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
+featurecommand = paste("featureCounts -T ", N_thread, " -M --primary -t transcript -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
