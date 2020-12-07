@@ -1,3 +1,5 @@
+
+
 ## ---------------------------
 ## Script name: ViRNA_SEQ: Viral_Scanning: Module 1 - MAPPING
 ## Function: Map Single Cell Virals from individual FASTQ file using STAR.
@@ -27,7 +29,7 @@ option_list <- list(
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
   make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/well/immune-rep/shared/10X_GENOMICS/EBV_LCLS/FASTQ/SRR8427168/DOWNSAMPLES/sub100k.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="ViRNA_Seq", help="Run Name [default]"),
   make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference.txt", help="Path to VirusSite annotation file [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
@@ -92,15 +94,35 @@ if(nzchar(system.file(package = "cowplot"))==FALSE){
   stop("cowplot not installed. Terminating. \n")
 }
 
+if(nzchar(system.file(package = "stringr"))==FALSE){
+  stop("cowplot not installed. Terminating. \n")
+}
+
+##-------------------------------------------------------
+
 ##-------------------------------------------------------
 ## Check Validiamety of Input FASTQ File
+
+suppressMessages(library(stringr))
+suppressMessages(library(Biostrings))
+suppressMessages(library(ShortRead))
+suppressMessages(library(doParallel))
+suppressMessages(library(GenomicAlignments))
+suppressMessages(library(Matrix))
+suppressMessages(library(ggplot2))
+suppressMessages(library(cowplot))
+
+#------------------------------
+
+# Function for testing file input:
+testfiles  <- function(optfastq){
 List_target_path = c()
-if (!is.null(opt$fastq)) {
-  if(file.exists(opt$fastq)){
+if (!is.null(optfastq)) {
+  if(file.exists(optfastq)){
     cat("FASTQ File present. \n") 
-    if(any(grepl(".fa|.fq|.fasta", opt$fastq))==TRUE){
+    if(any(grepl(".fa|.fq|.fasta", optfastq))==TRUE){
       cat("FASTQ File Type is Valid. \n")
-      List_target_path = opt$fastq
+      List_target_path = optfastq
     } else {
       stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa'. Terminating. \n")
     }
@@ -110,15 +132,20 @@ if (!is.null(opt$fastq)) {
 } else {
    stop("No FASTQ File Provided. Terminating. \n")
 }
-##-------------------------------------------------------
-## Load Required Packages into working environment
-suppressMessages(library(Biostrings))
-suppressMessages(library(ShortRead))
-suppressMessages(library(doParallel))
-suppressMessages(library(GenomicAlignments))
-suppressMessages(library(Matrix))
-suppressMessages(library(ggplot2))
-suppressMessages(library(cowplot))
+}
+
+
+# Actually test the files
+
+if (length(unlist(str_split(opt$f, ","))) >= 2) {
+	print("More than one input file detected: R1 and R2 File input")
+	x <- unlist(str_split(opt$f, ","))
+	for (i in x){
+		testfiles(i)
+	}
+} else {
+	testfiles(opt$f)
+} 
 
 ##-------------------------------------------------------
 ## Additional Functions and Log file
@@ -172,12 +199,10 @@ source(opt$auxfunctions)
 ## ------------------------------------------------------------------------------------
 ## Mapping: 
 ## Setting Up Directory: 
-name_target = unlist(base::strsplit(opt$fastq,"/",fixed = T))
-name_target = name_target[length(name_target)]
-name_target = gsub('/','',name_target)
-is_gz_file = any(grepl(pattern = ".gz",name_target))
-name_target = gsub('.fastq|.fa|.fq|.gz','',name_target)   #Cleaning the name to get the original Amplification batch number
-temp_output_dir = paste(Output_directory, "/", name_target,sep = "")
+
+is_gz_file = any(grepl(pattern = ".gz", opt$f))
+name_target = sample_name  #Cleaning the name to get the original Amplification batch number
+temp_output_dir = paste0(Output_directory, "/", name_target)
 dir.create(temp_output_dir)
 
 ## ------------------------------------------------------------------------------------
