@@ -1,7 +1,8 @@
 ## ---------------------------
 ## Script name: ViRNA_SEQ: Viral_Scanning: Module 1 - MultiMAPPING
 ## Function: Map Single Cell Virals from individual FASTQ file using STAR.
-## Author: Pierre Bost (as used in Viral TRACK paper). Updated by Lauren Overend (LEO) - Wellcome Trust Centre for Human Genetics
+## Author: Pierre Bost (as used in Viral TRACK paper) and updated by Lauren Overend.
+## Refactored for bulk RNAseq Lauren Overend (LEO) - Wellcome Trust Centre for Human Genetics
 ##
 ## Date Created: 2020 - June 
 ##
@@ -22,20 +23,22 @@ parser <- OptionParser()
 option_list <- list( 
   make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
   make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/VIRUS/TESTING', type="character", help="Path to output directory"),
-  make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a", help="Path to VIRAL TRACK reference genome [default]"),
+  make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRAL_TRACK_REFERENCE_BUILD_273a_NCBI", help="Path to VIRAL TRACK reference genome [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
   make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="ViRNA_Seq", help="Run Name [default]"),
-  make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference.txt", help="Path to VirusSite annotation file [default]"),
+  make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference_ncbi.txt", help="Path to VirusSite annotation file [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="FALSE", help="Path to GTF file. If no GTF file exists use FALSE and it will be created [default]")
 )
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser, print_help_and_exit = TRUE, args = commandArgs(trailingOnly = TRUE))
+
+##-------------------------------------------------------
 
 # Failures here will cause pipeline to Fail!! 
 if (is.null(opt$fastq)){
@@ -92,13 +95,15 @@ if(nzchar(system.file(package = "cowplot"))==FALSE){
   stop("cowplot not installed. Terminating. \n")
 }
 if(nzchar(system.file(package = "stringr"))==FALSE){
-  stop("cowplot not installed. Terminating. \n")
+  stop("stringr not installed. Terminating. \n")
+}
+if(nzchar(system.file(package = "reshape2"))==FALSE){
+  stop("reshape2 not installed. Terminating. \n")
 }
 
-
 ##-------------------------------------------------------
-## Check Validiamety of Input FASTQ File
 
+## Load Packages: 
 suppressMessages(library(stringr))
 suppressMessages(library(Biostrings))
 suppressMessages(library(ShortRead))
@@ -107,53 +112,16 @@ suppressMessages(library(GenomicAlignments))
 suppressMessages(library(Matrix))
 suppressMessages(library(ggplot2))
 suppressMessages(library(cowplot))
-
-#------------------------------
-
-# Function for testing file input:
-testfiles  <- function(optfastq){
-List_target_path = c()
-if (!is.null(optfastq)) {
-  if(file.exists(optfastq)){
-    cat("FASTQ File present. \n") 
-    if(any(grepl(".fa|.fq|.fasta", optfastq))==TRUE){
-      cat("FASTQ File Type is Valid. \n")
-      List_target_path = optfastq
-    } else {
-      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa'. Terminating. \n")
-    }
-  } else {
-    stop("FASTQ Provided but Path is Invalid. Terminating. \n")
-  }
-} else {
-   stop("No FASTQ File Provided. Terminating. \n")
-}
-}
-
-
-# Actually test the files
-
-if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	print("More than one input file detected: R1 and R2 File input")
-	x <- unlist(str_split(opt$f, ","))
-	for (i in x){
-		testfiles(i)
-	}
-} else {
-	testfiles(opt$f)
-} 
-
+suppressMessages(library(reshape2))
 ##-------------------------------------------------------
 
-##-------------------------------------------------------
 ## Additional Functions and Log file
 ## Notin Function:
 `%notin%` <- Negate(`%in%`)
 
 ## Setting up log.file: 
-
 if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	print("More than one input file detected: R1 and R2 File input, generating file name")
+	cat("More than one input file detected: R1 and R2 File input, generating file name. \n")
 	x <- unlist(str_split(opt$f, ","))
 	x <- x[1]
 	name <- unlist(strsplit(x,"/",fixed = T))
@@ -164,20 +132,59 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 	sample_name <- name[length(name)]
 	sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name)
 } 
-
- 
 log <-  paste0(opt$outputdir, "/ViRNA_SEQ_MultiMapping_", sample_name, ".log")
 
 ##-------------------------------------------------------
-## Checking the parameters values
-cat("ViRNA_SEQ_MultiMapping by Lauren Overend & Pierre Bost \n", file=log, append=TRUE)
+
+##  SETTING UP LOG HEADER 
+cat("ViRNA_SEQ_MultiMapping by Lauren Overend & Pierre Bost. \n", file=log, append=TRUE)
 cat(paste0("Run Name: ", opt$runname, "\n"), file=log, append=TRUE)
 start_time_1 <- Sys.time()
 cat(paste0("Start time: ", start_time_1, "\n"), file=log, append=TRUE)
+cat("----------------------------------------------\n", file=log, append=TRUE)
+##-------------------------------------------------------
+
+cat(paste0("Analysing input files. \n"), file=log, append=TRUE)
+
+## Check Validiamety of Input FASTQ File
+## Function for testing file input:
+testfiles  <- function(optfastq){
+List_target_path = c()
+if (!is.null(optfastq)) {
+  if(file.exists(optfastq)){
+    cat("FASTQ File present. \n", file=log, append=TRUE) 
+    if(any(grepl(".fa|.fq|.fasta", optfastq))==TRUE){
+      cat("FASTQ File Type is Valid. \n", file=log, append=TRUE)
+      List_target_path = optfastq
+    } else {
+      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa'. Terminating. \n", file=log, append=TRUE)
+    }
+  } else {
+    stop("FASTQ Provided but Path is Invalid. Terminating. \n", file=log, append=TRUE)
+  }
+} else {
+   stop("No FASTQ File Provided. Terminating. \n", file=log, append=TRUE)
+}
+}
+
+## Test the file path and wether it is a fasta file. 
+if (length(unlist(str_split(opt$f, ","))) >= 2) {
+	cat("More than one input file detected: R1 and R2 File input. \n", file=log, append=TRUE)
+	x <- unlist(str_split(opt$f, ","))
+	for (i in x){
+		testfiles(i)
+	}
+	cat("All files Valid. \n", file=log, append=TRUE)
+} else {
+	testfiles(opt$f)
+} 
+
+##-------------------------------------------------------
+## Checking the parameters values
+cat("----------------------------------------------\n", file=log, append=TRUE)
+cat("RUN PARAMETERS. \n", file=log, append=TRUE)
 cat(paste0("Output directory: ", opt$outputdir, "\n"), file=log, append=TRUE)
 cat(paste0("FASTQ File: ", opt$fastq, "\n"), file=log, append=TRUE)
-cat("----------------------------------------------\n", file=log, append=TRUE)
-cat("Input Parameters Read: Commencing Viral Track. \n", file=log, append = TRUE)
 cat(paste0("--nThreadmap: ", opt$nThreadmap, "\n"), file=log, append = TRUE)
 cat(paste0("--outputdir: ", opt$outputdir, "\n"), file=log, append = TRUE)
 cat(paste0("--indexgenome: ", opt$indexgenome, "\n"), file=log, append = TRUE)
@@ -192,6 +199,7 @@ cat(paste0("--auxfunctions: ", opt$auxfunctions, "\n"), file=log, append = TRUE)
 cat(paste0("--gtffile: ", opt$gtffile, "\n"), file=log, append = TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 
+##-------------------------------------------------------
 ## Renaming Paramaters to original variable names as in ViralTrack1.0 and sourcing auxillary funtions
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
@@ -206,10 +214,8 @@ path_to_gtf = opt$gtffile
 source(opt$auxfunctions) 
 
 ## ------------------------------------------------------------------------------------
-## ------------------------------------------------------------------------------------
 ## Mapping: 
 ## Setting Up Directory: 
-
 is_gz_file = any(grepl(pattern = ".gz", opt$f))
 name_target = sample_name  #Cleaning the name to get the original Amplification batch number
 temp_output_dir = paste0(Output_directory, "/", name_target)
@@ -283,7 +289,7 @@ temp_chromosome_count = read.table(temp_chromosome_count_path,header = F,row.nam
 colnames(temp_chromosome_count) = c("Chromosome_length","Mapped_reads","Unknown")
 
 # Filtering Table removing Human sequences and the removing viruses with less than a given threshold of reads:
-virus <- grep("refseq", rownames(temp_chromosome_count), value=TRUE)
+virus <- grep("refseq|NC_", rownames(temp_chromosome_count), value=TRUE)
 temp_chromosome_count <- temp_chromosome_count[rownames(temp_chromosome_count) %in% virus, ]
 temp_chromosome_count = temp_chromosome_count[temp_chromosome_count$Mapped_reads>=Minimal_read_mapped,]
 no_viruses <- length(temp_chromosome_count[,1])
@@ -320,7 +326,7 @@ cat("\t 5.b  Viral BAM Files Extracted. \n", file=log, append = TRUE)
 # Creating HUMAN BAM FILES
 temp_chromosome_count_human = read.table(temp_chromosome_count_path,header = F,row.names = 1)
 colnames(temp_chromosome_count_human) = c("Chromosome_length","Mapped_reads","Unknown")
-virus_sequence_names <- grep("refseq", rownames(temp_chromosome_count_human), value=TRUE)
+virus_sequence_names <- grep("refseq|NC_", rownames(temp_chromosome_count_human), value=TRUE)
 human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromosome_count_human) %notin% virus_sequence_names]
 human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
 temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in% human_chromosomes ,]
@@ -499,7 +505,7 @@ colnames(Read_count_temp) = c("Chromosome_length","Mapped_reads","Unknown")
 Read_count_temp = Read_count_temp[Read_count_temp$Mapped_reads!=0,]
 Read_count_temp$Chr <- rownames(Read_count_temp)
 
-virus_sequence_names <- grep("refseq", rownames(Read_count_temp), value=TRUE)
+virus_sequence_names <- grep("refseq|NC_", rownames(Read_count_temp), value=TRUE)
 human_chromosomes <- rownames(Read_count_temp)[rownames(Read_count_temp) %notin% virus_sequence_names]
 human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
 
@@ -514,14 +520,15 @@ Read_count_temp$Chr <- NULL
 
 ## Calculate the percentage of human reads etc 
 host_mapping_count = sum(Read_count_temp[grepl(pattern = "chr",rownames(Read_count_temp)),"Mapped_reads"])
-viral_mapping_count = sum(Read_count_temp[grepl(pattern = "NC",rownames(Read_count_temp)),"Mapped_reads"])
+viral_mapping_count = sum(Read_count_temp[grepl(pattern = "refseq|NC_",rownames(Read_count_temp)),"Mapped_reads"])
 total_mapping = viral_mapping_count + host_mapping_count
 Ratio_host_virus = matrix(data = c(host_mapping_count,viral_mapping_count)/total_mapping,ncol = 1)*100
 percent_viral = viral_mapping_count / total_mapping * 100 
 
 ## Number of uniquely mapped reads and other reads for the filtered virus 
-Mapping_selected_virus = data.frame(Unique_mapping = (Filtered_QC$N_unique_reads),All_mapping = (Filtered_QC$N_reads),row.names = rownames(Filtered_QC))
-Mapping_selected_virus = Mapping_selected_virus[order(Mapping_selected_virus$Unique_mapping,decreasing = TRUE),]
+Mapping_selected_virus = Filtered_QC
+rownames(Mapping_selected_virus) <- rownames(Filtered_QC)
+Mapping_selected_virus = Mapping_selected_virus[order(Mapping_selected_virus$N_unique_reads,decreasing = TRUE),]
 cat("\t 10. Calculating Broad Metrics on Mapping...DONE \n", file=log, append = TRUE)
 ## ------------------------------------------------------------------------------------
 ## Plotting the Statisitics 
@@ -532,15 +539,27 @@ Mapping_selected_virus$Name_id <- rownames(Mapping_selected_virus)
 if(length(Mapping_selected_virus[, 1])>0) {
   Mapping_selected_virus$Name_sequence<- c()
   for (i in 1:length(Mapping_selected_virus[, 1])){
-    z <- Mapping_selected_virus[i, 3]
-    z <- unlist(strsplit(z,"|",fixed = T))[2]
+    z <- Mapping_selected_virus[i, "Name_id"]
+    z <- unlist(strsplit(z,"'|",fixed = T))
+	if(length(z)>2){
+	 z <- unlist(strsplit(z,"|",fixed = T))[2]
+	} else {
+	z <- Mapping_selected_virus[i, "Name_id"]
+	}
     Mapping_selected_virus$Name_sequence[i] <- z
   } 
 } else {
-  Mapping_selected_virus <- data.frame(Unique_mapping = numeric(), All_mapping = numeric(), Name_id = character(), Name_sequence = character())
+  Mapping_selected_virus <- data.frame(N_reads = numeric(), N_unique_reads = numeric(), Name_id = character(), Name_sequence = character())
 }
 Mapping_selected_virus <- merge(Mapping_selected_virus, Virus_database, by="Name_sequence")
-rownames(Mapping_selected_virus) <- Mapping_selected_virus$Complete_segment_name
+
+if(length(Mapping_selected_virus[, 1])>0) {
+	rownames(Mapping_selected_virus) <- paste0(Mapping_selected_virus$Complete_segment_name, " - ", Mapping_selected_virus$Name_sequence)
+	Mapping_selected_virus$fullname <- paste0(Mapping_selected_virus$Complete_segment_name, " - ", Mapping_selected_virus$Name_sequence)
+	Nucleotide_usage <- data.frame(Mapping_selected_virus[, c("A", "C", "T", "G", "fullname")])
+	Nucleotide_usage <- melt(Nucleotide_usage, id.vars=c("fullname"), measure.vars=c("A", "C", "T", "G"), value.name="NTUsage")
+}
+
 
 pdf_name <-paste0(temp_output_dir, "/", name_target, "_Summary.pdf")
 ## Open PDF file: 
@@ -598,29 +617,20 @@ if ("FAIL" %notin% levels(QC_result$PassedFiltering)){
 
 # Plot Number of Reads > 50 (filtering threshold)
 if(length(rownames(QC_result))>0){
-  
-  p1 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("% Mapped genome") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey")+ geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multimapping Read Count")
-  p2 <- ggplot(QC_result, aes(color=PassedFiltering, x=N_unique_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Number of Uniquely Mapped Reads") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multi Read Count")
-  p3 <- ggplot(QC_result, aes(color=PassedFiltering, x=Sequence_entropy, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Sequence Entropy") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + geom_vline(xintercept=1.2, linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: Multi Read Sequence Complexity")
-  p4 <- ggplot(QC_result, aes(color=PassedFiltering, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE, name="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: DUST Score")
-  plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, ncol=3, labels = "AUTO"))
+  p1 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("% Mapped genome") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey")+ geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multimapping Read Count")
+  p2 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_unique_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Uniquely Mapped Reads") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Multi Reads: Multi Read Count")
+  p3 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Sequence_entropy, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Sequence Entropy") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + geom_vline(xintercept=1.2, linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: Multi Read Sequence Complexity")
+  p4 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: DUST Score")
+  p5 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Mean_read_quality, y=Sd_read_quality)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Mean Read Quality") + ylab("SD Read Quality") + ggtitle("Viral Summary Multi Reads: Read Quality")
+  plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, p5, ncol=3, labels = "AUTO"))
 #Number of reads for each filtered virus
-  par(las=1, mfrow=c(3,3), mar=c(6,6,6,4))
-  if (length(detected_virus) > 0) {
-    par(las=0)
-    barplot(Mapping_selected_virus$All_mapping[nrow(Mapping_selected_virus):1],
-            col="black",horiz = T,cex.lab=1.3,cex.axis = 1.3,cex.names=1,
-            xlim=c(0,max(Mapping_selected_virus$All_mapping)*1.2),xlab="Number of mapped reads",
-            names.arg = rownames(Mapping_selected_virus)[nrow(Mapping_selected_virus):1])
-    par(las=0)
-    barplot(Mapping_selected_virus$Unique_mapping[nrow(Mapping_selected_virus):1],
-            col="black",horiz = T,cex.lab=1.3,cex.axis = 1.3,cex.names=1,
-            xlim=c(0,max(Mapping_selected_virus$Unique_mapping)*1.2),xlab="Number of uniquely mapped reads",
-            names.arg = rownames(Mapping_selected_virus)[nrow(Mapping_selected_virus):1])
-    
-  } else {
-  plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, ncol=2, labels = "AUTO"))
-}
+  if (length(Mapping_selected_virus[, 1])>0) {
+	t1 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
+	t2 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_unique_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Uniquely Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
+	t3 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = Genome_length, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Length of Genome (nt)") + coord_flip() + labs(fill="NC Identifier")
+    t4 <- ggplot(Nucleotide_usage, aes(fill=variable, y=NTUsage, x=fullname)) + geom_bar(position="fill", stat="identity") + theme_classic() + xlab("Virus") + ylab("Nucleotide Usage") + labs(fill="Nucleotide") + coord_flip()
+	plot(plot_grid(t1, t2, t3, t4, nrow=2, ncol=2, labels = "AUTO"))
+    } 
 dev.off() 
 }
 

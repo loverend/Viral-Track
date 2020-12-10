@@ -230,7 +230,7 @@ temp_chromosome_count = read.table(temp_chromosome_count_path,header = F,row.nam
 colnames(temp_chromosome_count) = c("Chromosome_length","Mapped_reads","Unknown")
 
 # Filtering Table removing Human sequences and the removing viruses with less than a given threshold of reads:
-virus <- grep("refseq", rownames(temp_chromosome_count), value=TRUE)
+virus <- grep("refseq|NC_", rownames(temp_chromosome_count), value=TRUE)
 temp_chromosome_count <- temp_chromosome_count[rownames(temp_chromosome_count) %in% virus, ]
 temp_chromosome_count = temp_chromosome_count[temp_chromosome_count$Mapped_reads>=Minimal_read_mapped,]
 no_viruses <- length(temp_chromosome_count[,1])
@@ -266,7 +266,7 @@ cat("\t 5.b  Viral BAM Files Extracted. \n", file=log, append = TRUE)
 # Creating HUMAN BAM FILES
 temp_chromosome_count_human = read.table(temp_chromosome_count_path,header = F,row.names = 1)
 colnames(temp_chromosome_count_human) = c("Chromosome_length","Mapped_reads","Unknown")
-virus_sequence_names <- grep("refseq", rownames(temp_chromosome_count_human), value=TRUE)
+virus_sequence_names <- grep("refseq|NC_", rownames(temp_chromosome_count_human), value=TRUE)
 human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromosome_count_human) %notin% virus_sequence_names]
 human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
 temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in% human_chromosomes ,]
