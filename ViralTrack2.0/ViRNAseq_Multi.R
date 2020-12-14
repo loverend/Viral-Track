@@ -357,10 +357,11 @@ if(length(list.files(dir))>0){
   cat("\t QC VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   QC_result <- NULL
-## Generation of the QC repor
+## Generation of the QC report
   for(i in 1:length(rownames(temp_chromosome_count))) {
     z <- rownames(temp_chromosome_count)[i]
-    BAM_file=readGAlignments(paste(temp_output_dir, "/Viral_BAM_files/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
+    BAM_file_1=readGAlignments(paste(temp_output_dir, "/Viral_BAM_files/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
+    BAM_file= BAM_file_1[BAM_file_1@elementMetadata$flag==0 | BAM_file_1@elementMetadata$flag==16]  ## Identifies only primary alignments
 	if(length(BAM_file) >0){
 		#Let's check the diversity of the reads
 		#Lets use just the reads that map uniquely to calculate the statistics!!!
