@@ -28,8 +28,8 @@ option_list <- list(
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
   make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
-  make_option(c("-r", "--runname"), action="store", type="character", default="ViRNA_Seq", help="Run Name [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033440/gains8033440.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-r", "--runname"), action="store", type="character", default="ViRNA_Seq_Multi", help="Run Name [default]"),
   make_option(c("-v", "--viralannotation"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/Updated_VirusSite_Reference_ncbi.txt", help="Path to VirusSite annotation file [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="FALSE", help="Path to GTF file. If no GTF file exists use FALSE and it will be created [default]")
@@ -542,7 +542,7 @@ if(length(Mapping_selected_virus[, 1])>0) {
   for (i in 1:length(Mapping_selected_virus[, 1])){
     z <- Mapping_selected_virus[i, "Name_id"]
     z <- unlist(strsplit(z,"'|",fixed = T))
-	if(length(z)>2){
+	if(length(z)<=2){
 	 z <- unlist(strsplit(z,"|",fixed = T))[2]
 	} else {
 	z <- Mapping_selected_virus[i, "Name_id"]
@@ -624,16 +624,17 @@ if(length(rownames(QC_result))>0){
   p4 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Multi Reads: DUST Score")
   p5 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Mean_read_quality, y=Sd_read_quality)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Mean Read Quality") + ylab("SD Read Quality") + ggtitle("Viral Summary Multi Reads: Read Quality")
   plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, p5, ncol=3, labels = "AUTO"))
-#Number of reads for each filtered virus
-  if (length(Mapping_selected_virus[, 1])>0) {
-	t1 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
-	t2 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_unique_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Uniquely Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
-	t3 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = Genome_length, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Length of Genome (nt)") + coord_flip() + labs(fill="NC Identifier")
-    t4 <- ggplot(Nucleotide_usage, aes(fill=variable, y=NTUsage, x=fullname)) + geom_bar(position="fill", stat="identity") + theme_classic() + xlab("Virus") + ylab("Nucleotide Usage") + labs(fill="Nucleotide") + coord_flip()
-	plot(plot_grid(t1, t2, t3, t4, nrow=2, ncol=2, labels = "AUTO"))
-    } 
-dev.off() 
 }
+#Number of reads for each filtered virus
+if (length(Mapping_selected_virus[, 1])>0) {
+ t1 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
+ t2 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_unique_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Uniquely Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
+ t3 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = Genome_length, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Length of Genome (nt)") + coord_flip() + labs(fill="NC Identifier")
+ t4 <- ggplot(Nucleotide_usage, aes(fill=variable, y=NTUsage, x=fullname)) + geom_bar(position="fill", stat="identity") + theme_classic() + xlab("Virus") + ylab("Nucleotide Usage") + labs(fill="Nucleotide") + coord_flip()
+ plot(plot_grid(t1, t2, t3, t4, nrow=2, ncol=2, labels = "AUTO"))
+} 
+dev.off() 
+
 
 
 cat("\t 11. Plotting QC statistics.. Done. \n", file=log, append = TRUE)
