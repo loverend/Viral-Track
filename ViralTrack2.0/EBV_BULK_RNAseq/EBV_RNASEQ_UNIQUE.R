@@ -39,11 +39,10 @@ option_list <- list(
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
   make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = '/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate2.fa', help="Path to input FASTQ file [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033923/gains8033923.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033923/gains8033923.Unmapped.out.mate2.fa", help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="RNASEQ_EBV_Unique", help="Run Name [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
-  make_option(c("-g", "--gtffile"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/REFERENCE_FILES/genes_final.gtf", help="Path to GTF file [default]"),
-  make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]")
+  make_option(c("-g", "--gtffile"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/REFERENCE_FILES/genes_final.gtf", help="Path to GTF file [default]")
 )
 
 opt_parser = OptionParser(option_list=option_list);
@@ -339,7 +338,7 @@ if(length(list.files(dir))==0){
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   }  
 
-if(length(list.files(dir))>0){
+if(temp_chromosome_count[,2]>0){
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   cat(paste0("\t ", length(list.files(dir))," EBV READS IDENFIFIED . \n"), file=log, append=TRUE)
   cat("\t QC VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
@@ -434,16 +433,15 @@ if (class(QC_result)=="numeric"){
   cat('Only one virus detected - output is not a dataframe: converting \n', file=log, append = TRUE)
   QC_result <- as.data.frame(t(as.data.frame(QC_result)))
 }
-
-colnames(QC_result) = c("N_reads","N_unique_reads","Percent_uniquely_mapped",
-                        "Mean_read_quality","Sd_read_quality",
-                        c("A","C","G","T"),"Sequence_entropy","Spatial_distribution","Longest_contig",
-                        "DUST_score","Percent_high_quality_reads")
-QC_result <- as.data.frame(QC_result)
-QC_result <- sapply( QC_result, as.numeric )
-QC_result <- as.data.frame(t(QC_result))
-if(length(QC_result[,1])>0){
-rownames(QC_result) = rownames(temp_chromosome_count)
+if (length(QC_result[,1])>0){
+	colnames(QC_result) = c("N_reads","N_unique_reads","Percent_uniquely_mapped",
+							"Mean_read_quality","Sd_read_quality",
+							c("A","C","G","T"),"Sequence_entropy","Spatial_distribution","Longest_contig",
+							"DUST_score","Percent_high_quality_reads")
+	QC_result <- as.data.frame(QC_result)
+	QC_result <- sapply( QC_result, as.numeric )
+	QC_result <- as.data.frame(t(QC_result))
+	rownames(QC_result) = rownames(temp_chromosome_count)
 } 
 QC_result <- as.data.frame(QC_result)
 QC_result$genome <- rownames(QC_result)
@@ -460,13 +458,15 @@ cat("\t 8. Filtering on QC Metrics. \n", file=log, append = TRUE)
 detected_virus = rownames(QC_result[QC_result$N_reads > opt$t & QC_result$Sequence_entropy>1.2 & QC_result$Longest_contig>3*Mean_mapping_length & QC_result$Spatial_distribution>0.05,])
 
 ## Add on metric True/False filtering to QC tabel which is used later in plotting: 
-QC_result[,"PassedFiltering"] <- NA
-for (j in 1:length(QC_result$genome)){
-	i <- QC_result$genome[j]
-	if (i %in% detected_virus){
-		QC_result$PassedFiltering[j] <-"PASS"
-	} else {
-		QC_result$PassedFiltering[j] <- "FAIL"
+if (length(QC_result[,1])>0){
+	QC_result[,"PassedFiltering"] <- NA
+	for (j in 1:length(QC_result$genome)){
+		i <- QC_result$genome[j]
+		if (i %in% detected_virus){
+			QC_result$PassedFiltering[j] <-"PASS"
+		} else {
+			QC_result$PassedFiltering[j] <- "FAIL"
+		}
 	}
 }
 
@@ -514,8 +514,10 @@ percent_viral = viral_mapping_count / total_mapping * 100
 
 ## Number of uniquely mapped reads and other reads for the filtered virus 
 Mapping_selected_virus = QC_result
-rownames(Mapping_selected_virus) <- rownames(Filtered_QC)
-Mapping_selected_virus = Mapping_selected_virus[order(Mapping_selected_virus$N_unique_reads,decreasing = TRUE),]
+rownames(Mapping_selected_virus) <- rownames(QC_result)
+if(length(Mapping_selected_virus[, 1])>0) {
+	Mapping_selected_virus = Mapping_selected_virus[order(Mapping_selected_virus$N_unique_reads,decreasing = TRUE),]
+}
 cat("\t 10. Calculating Broad Metrics on Mapping...DONE \n", file=log, append = TRUE)
 ## ------------------------------------------------------------------------------------
 ## Plotting the Statisitics 
@@ -585,11 +587,14 @@ mapping_host_virus <- ggplot(Ratio_host_virus, aes(fill=Class, y=Percentage, x=M
 QC_result$PassedFiltering <- factor(QC_result$PassedFiltering)
 if ("PASS" %notin% levels(QC_result$PassedFiltering)){
 	levels(QC_result$PassedFiltering) <- c(levels(QC_result$PassedFiltering), "PASS")
+	QC_result$PassedFiltering <- relevel(QC_result$PassedFiltering, "PASS")
 }
 
 if ("FAIL" %notin% levels(QC_result$PassedFiltering)){
 	levels(QC_result$PassedFiltering) <- c(levels(QC_result$PassedFiltering), "FAIL")
+	QC_result$PassedFiltering <- relevel(QC_result$PassedFiltering, "PASS")
 }
+
 
 # Plot Number of Reads > 50 (filtering threshold)
 if(length(rownames(QC_result))>0){
@@ -599,7 +604,10 @@ if(length(rownames(QC_result))>0){
   p4 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: DUST Score")
   p5 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Mean_read_quality, y=Sd_read_quality)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Mean Read Quality") + ylab("SD Read Quality") + ggtitle("Viral Summary Unique Reads: Read Quality")
   plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, p2, p3, p4, p5, ncol=3, labels = "AUTO"))
-}
+} 
+if(length(rownames(QC_result))==0){
+	plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate,  ncol=3, labels = "AUTO"))
+} 
 #Number of reads for each filtered virus
 if (length(Mapping_selected_virus[, 1])>0) {
  t1 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
