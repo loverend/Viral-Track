@@ -126,11 +126,11 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 	x <- x[1]
 	name <- unlist(strsplit(x,"/",fixed = T))
 	sample_name <- name[length(name)]
-	sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name) 
+	sample_name = gsub('.fastq|.fa|.fq|.gz|.mate1|.mate2','',sample_name) 
 } else {
 	name <- unlist(strsplit(opt$f,"/",fixed = T))
 	sample_name <- name[length(name)]
-	sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name)
+	sample_name = gsub('.fastq|.fa|.fq|.gz|.mate1|.mate2','',sample_name)
 } 
 log <-  paste0(opt$outputdir, "/ViRNA_SEQ_UniqueMapping_", sample_name, ".log")
 
@@ -153,11 +153,11 @@ List_target_path = c()
 if (!is.null(optfastq)) {
   if(file.exists(optfastq)){
     cat("FASTQ File present. \n", file=log, append=TRUE) 
-    if(any(grepl(".fa|.fq|.fasta", optfastq))==TRUE){
+    if(any(grepl(".fa|.fq|.fasta|mate1|mate2", optfastq))==TRUE){
       cat("FASTQ File Type is Valid. \n", file=log, append=TRUE)
       List_target_path = optfastq
     } else {
-      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa'. Terminating. \n", file=log, append=TRUE)
+      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa/mate1/mate2'. Terminating. \n", file=log, append=TRUE)
     }
   } else {
     stop("FASTQ Provided but Path is Invalid. Terminating. \n", file=log, append=TRUE)

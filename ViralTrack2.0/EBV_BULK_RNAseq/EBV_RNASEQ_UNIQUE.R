@@ -32,7 +32,7 @@ if(nzchar(system.file(package = "optparse"))==FALSE){
 suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
-  make_option(c("-n", "--nThreadmap"), action="store", default=8, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
+  make_option(c("-n", "--nThreadmap"), action="store", default=5, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
   make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/VIRUS/TESTING', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/GRCh38_EBV_BRNASEQ/", help="Path to EBV reference [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
@@ -130,11 +130,11 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 	x <- x[1]
 	name <- unlist(strsplit(x,"/",fixed = T))
 	sample_name <- name[length(name)]
-	sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name) 
+	sample_name = gsub('.fastq|.fa|.fq|.gz|.mate1|.mate2','',sample_name) 
 } else {
 	name <- unlist(strsplit(opt$f,"/",fixed = T))
 	sample_name <- name[length(name)]
-	sample_name = gsub('.fastq|.fa|.fq|.gz','',sample_name)
+	sample_name = gsub('.fastq|.fa|.fq|.gz|.mate1|.mate2','',sample_name)
 } 
 log <-  paste0(opt$outputdir, "/RNA_EBV_UniqueMapping_", sample_name, ".log")
 
@@ -157,11 +157,11 @@ List_target_path = c()
 if (!is.null(optfastq)) {
   if(file.exists(optfastq)){
     cat("FASTQ File present. \n", file=log, append=TRUE) 
-    if(any(grepl(".fa|.fq|.fasta", optfastq))==TRUE){
+    if(any(grepl(".fa|.fq|.fasta|mate1|mate2", optfastq))==TRUE){
       cat("FASTQ File Type is Valid. \n", file=log, append=TRUE)
       List_target_path = optfastq
     } else {
-      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa'. Terminating. \n", file=log, append=TRUE)
+      stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa/mate1/mate2'. Terminating. \n", file=log, append=TRUE)
     }
   } else {
     stop("FASTQ Provided but Path is Invalid. Terminating. \n", file=log, append=TRUE)
