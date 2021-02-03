@@ -1,7 +1,7 @@
 #!/bin/bash
 Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033732/gains8033732.Unmapped.out.mate2.fa"
 Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033070/gains8033070.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033070/gains8033070.Unmapped.out.mate2.fa"
-Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032861/gains8032861.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032861/gains8032861.Unmapped.out.mate2.fa"
+Rscript EBV_RNASEQ_UNIQUE.R -f "/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033163/gains8033163.Unmapped.out.mate1,/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033163/gains8033163.Unmapped.out.mate2"
 Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032867/gains8032867.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032867/gains8032867.Unmapped.out.mate2.fa"
 Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032869/gains8032869.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032869/gains8032869.Unmapped.out.mate2.fa"
 Rscript EBV_RNASEQ_UNIQUE.R -f "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032870/gains8032870.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8032870/gains8032870.Unmapped.out.mate2.fa"
