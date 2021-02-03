@@ -372,8 +372,10 @@ if(length(list.files(dir))>0){
 		
 		#calculate percentage of nucleotides in the viral reads for Read Entropy
 		# If only one reads present returns numeric vector rather than dataframe:
-		if (class(Viral_reads_contents)=="numeric") {
-		  Viral_reads_contents = matrix(Viral_reads_contents_mean,ncol = 4)
+		if (class(Viral_reads_contents)=="numeric"){
+			Viral_reads_contents_mean <- t(data.frame(Viral_reads_contents))
+		} else {
+			Viral_reads_contents_mean <- colMeans(Viral_reads_contents)
 		}
 		
 		Viral_reads_contents_mean =colMeans(Viral_reads_contents)

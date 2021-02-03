@@ -1,7 +1,7 @@
 ## ---------------------------
-## Script name: RNA_SEQ_UNIQUE PIPELINE: EBV_HUMAN GENOME MAPPING 
-## Function: Map EBV and HUMAN genes in BULK RNAseq.
-## Author: Lauren Overend with some functions borrowed from Pierre Bost.
+## Script name: RNA_SEQ_EBV PIPELINE 
+## Function: EBV+ HUMAN Mapping of bulk RNAseq
+## Author: Lauren Overend (based on the scRNA seq pipeline Viral-Track by Pierre Bost et al).
 ## Wellcome Trust Centre for Human Genetics
 ##
 ## Date Created: 2021 - JAN 
@@ -9,13 +9,9 @@
 ## Email: lauren.overend@oriel.ox.ac.uk
 ##
 ## ---------------------------
-##
-## Notes:
-##   
-##
 ## ---------------------------
-## Reading in Commandline Arguments. 
 
+## Reading in Commandline Modules - Not run as part of script! 
 #module purge
 #module use -a /apps/eb/dev/ivybridge/modules/all
 #module load Python/3.8.2-GCCcore-9.3.0 
@@ -26,29 +22,30 @@
 #module load Subread/2.0.1-GCC-9.3.0
 
 ## ---------------------------
+## Reading in command line arguments for script 
 if(nzchar(system.file(package = "optparse"))==FALSE){
   stop("optparse not installed. Terminating. \n")
 }
 suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list( 
-  make_option(c("-n", "--nThreadmap"), action="store", default=5, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
-  make_option(c("-o", "--outputdir"), action="store", default='/gpfs2/well/immune-rep/users/kvi236/VIRUS/TESTING', type="character", help="Path to output directory"),
+  make_option(c("-n", "--nThreadmap"), action="store", default=3, type="integer", help="runThreadN for Star Mapping. Note will also be used as threads for Feature Counts [default]"),
+  make_option(c("-o", "--outputdir"), action="store", default='/well/immune-rep/users/kvi236/VIRUS/TESTING', type="character", help="Path to output directory"),
   make_option(c("-i", "--indexgenome"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/GRCh38_EBV_BRNASEQ/", help="Path to EBV reference [default]"),
   make_option(c("-s", "--nThreadsort"), action="store", type="integer", default=1, help="outBAMsortingThreadN for STAR Mapping [default] - usually < runThreadN"),
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
-  make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=50, help="Minimum number of reads per virus to pass filtering [default]"),
+  make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=10, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = "/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033923/gains8033923.Unmapped.out.mate1.fa,/gpfs2/well/immune-rep/users/kvi236/SEPSIS_RNASEQ/gains8033923/gains8033923.Unmapped.out.mate2.fa", help="Path to input FASTQ file [default]"),
-  make_option(c("-r", "--runname"), action="store", type="character", default="RNASEQ_EBV_Unique", help="Run Name [default]"),
-  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = "/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033070/gains8033070.Unmapped.out.mate1,/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033070/gains8033070.Unmapped.out.mate2", help="Path to input FASTQ file [default]"),
+  make_option(c("-r", "--runname"), action="store", type="character", default="RNASEQ_EBV", help="Run Name [default]"),
+  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/REFERENCE_FILES/genes_final.gtf", help="Path to GTF file [default]")
 )
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser, print_help_and_exit = TRUE, args = commandArgs(trailingOnly = TRUE))
 
-# Failures here will cause pipeline to Fail!! 
+# Testing paramaters for potential failure - will cause script to abort. 
 if (is.null(opt$fastq)){
   stop("No FASTq file provided. Terminating. \n", call.=FALSE)
 }
@@ -107,7 +104,7 @@ if(nzchar(system.file(package = "reshape2"))==FALSE){
 }
 
 ##-------------------------------------------------------
-## Load Packages: 
+## Loading Required Packages: 
 suppressMessages(library(stringr))
 suppressMessages(library(Biostrings))
 suppressMessages(library(ShortRead))
@@ -119,13 +116,14 @@ suppressMessages(library(cowplot))
 suppressMessages(library(reshape2))
 ##-------------------------------------------------------
 
-## Additional Functions and Log file
+## Additional Functions:
 ## Notin Function:
 `%notin%` <- Negate(`%in%`)
+##-------------------------------------------------------
 
-## Setting up log.file: 
+## Generating Log File:  
+## Will generate name based on file input - if multiple files present will use the first to name
 if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	cat("More than one input file detected: R1 and R2 File input, generating file name. \n")
 	x <- unlist(str_split(opt$f, ","))
 	x <- x[1]
 	name <- unlist(strsplit(x,"/",fixed = T))
@@ -136,22 +134,23 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 	sample_name <- name[length(name)]
 	sample_name = gsub('.fastq|.fa|.fq|.gz|.mate1|.mate2','',sample_name)
 } 
-log <-  paste0(opt$outputdir, "/RNA_EBV_UniqueMapping_", sample_name, ".log")
+log <-  paste0(opt$outputdir, "/RNAseq_EBV_", sample_name, ".log")
 
 ##-------------------------------------------------------
-
 ##  SETTING UP LOG HEADER 
-cat("RNA_BULK_UniqueMapping by Lauren Overend. \n", file=log, append=TRUE)
+
+cat("RNAseq EBV+Human Mapping by Lauren Overend. \n", file=log, append=TRUE)
+cat("Bashford-Rogers Group. Wellcome Trust Centre for Human Genetics \n", file=log, append=TRUE)
 cat(paste0("Run Name: ", opt$runname, "\n"), file=log, append=TRUE)
 start_time_1 <- Sys.time()
 cat(paste0("Start time: ", start_time_1, "\n"), file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 ##-------------------------------------------------------
 
-cat(paste0("Analysing input files. \n"), file=log, append=TRUE)
-
 ## Check Validiamety of Input FASTQ File
 ## Function for testing file input:
+cat(paste0("Checking Input files. \n"), file=log, append=TRUE)
+# function to check filetype
 testfiles  <- function(optfastq){
 List_target_path = c()
 if (!is.null(optfastq)) {
@@ -164,16 +163,16 @@ if (!is.null(optfastq)) {
       stop("Fastq File Provided is Not of Type '.fasta/.fq/.fa/mate1/mate2'. Terminating. \n", file=log, append=TRUE)
     }
   } else {
-    stop("FASTQ Provided but Path is Invalid. Terminating. \n", file=log, append=TRUE)
+    stop("Potential FASTQ Provided but Path is Invalid. Terminating. \n", file=log, append=TRUE)
   }
 } else {
    stop("No FASTQ File Provided. Terminating. \n", file=log, append=TRUE)
 }
 }
 
-## Test the file path and wether it is a fasta file. 
+## Test the file path and wether it is a fasta file: Will need to be run seperately on each fastq if multiple files present
 if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	cat("More than one input file detected: R1 and R2 File input. \n", file=log, append=TRUE)
+	cat("More than one input file detected: R1 and R2 File detected. \n", file=log, append=TRUE)
 	x <- unlist(str_split(opt$f, ","))
 	for (i in x){
 		testfiles(i)
@@ -184,7 +183,7 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 } 
 
 ##-------------------------------------------------------
-## Checking the parameters values
+## Checking the parameters values and recording for this run
 cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("RUN PARAMETERS. \n", file=log, append=TRUE)
 cat(paste0("Output directory: ", opt$outputdir, "\n"), file=log, append=TRUE)
@@ -194,7 +193,6 @@ cat(paste0("--outputdir: ", opt$outputdir, "\n"), file=log, append = TRUE)
 cat(paste0("--indexgenome: ", opt$indexgenome, "\n"), file=log, append = TRUE)
 cat(paste0("--thresholdmappedreads: ", opt$t, "\n"), file=log, append = TRUE)
 cat(paste0("--nThreadsort: ", opt$nThreadsort, "\n"), file=log, append = TRUE)
-cat(paste0("--thresholdmappedreads: ", opt$t, "\n"), file=log, append = TRUE)
 cat(paste0("--bins: ", opt$bins, "\n"), file=log, append = TRUE)
 cat(paste0("--fastq: ", opt$fastq, "\n"), file=log, append = TRUE)
 cat(paste0("--runname: ", opt$runname, "\n"), file=log, append = TRUE)
@@ -202,12 +200,18 @@ cat(paste0("--gtffile: ", opt$gtffile, "\n"), file=log, append = TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 
 ##-------------------------------------------------------
-## Renaming Paramaters to original variable names as in ViralTrack1.0 and sourcing auxillary funtions
+## Renaming Paramaters to original variable names as in ViralTrack1.0 (Pierre Bost) and sourcing auxillary funtions
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
 N_bins = opt$bins
-Output_directory = paste0(opt$outputdir, "/RNA_EBV_UNIQUE_Mapping_Analysis")
-dir.create(Output_directory)
+Output_directory = paste0(opt$outputdir, "/RNAseq_EBV_PIPELINE")
+
+# Creating the outpur directory: will only create the directory if it doesn't exist. 
+if(!dir.exists(file.path(Output_directory))){
+	dir.create(file.path(Output_directory))
+}
+
+# Additional Parameters 
 Name_run = opt$runname    
 Index_genome = opt$indexgenome 
 path_to_gtf = opt$gtffile
@@ -222,7 +226,6 @@ name_target = sample_name  #Cleaning the name to get the original Amplification 
 temp_output_dir = paste0(Output_directory, "/", name_target)
 dir.create(temp_output_dir)
 
-
 ## ------------------------------------------------------------------------------------
 ## MAPPING 
 cat(paste0("Mapping: ",name_target,".fastq file \n"), file=log, append = TRUE)
@@ -230,7 +233,7 @@ start_time <- Sys.time()
 cat(paste0("Start time: ", start_time, "\n"), file=log, append=TRUE)
 name_prefix = paste0(temp_output_dir, "/", name_target)
   
-#We construct a complex command 
+#STAR mapping command
 STAR_mapping_command = paste("STAR --runThreadN ",N_thread," --outBAMsortingThreadN ",N_thread_sort," --outBAMsortingBinsN ", N_bins, " --genomeDir ",Index_genome," --readFilesIn ", opt$fastq," --outSAMattributes NH HI AS nM NM XS ",
                                "--outFileNamePrefix ",name_prefix," --outSAMtype BAM SortedByCoordinate --twopassMode Basic ",
                                "--outFilterMatchNmin 35 --outMultimapperOrder Random --runRNGseed 1 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6 > ", name_prefix, "_STAR_MAPPING.log", sep="")
@@ -239,9 +242,11 @@ STAR_mapping_command = paste("STAR --runThreadN ",N_thread," --outBAMsortingThre
 if (is_gz_file==TRUE) {
     STAR_mapping_command = paste(STAR_mapping_command, "--readFilesCommand zcat", sep=" ") #Allowing to read .gz files
     }
+
 ## Launching STAR COMMAND
 system(STAR_mapping_command)
 end_time <- Sys.time()
+
 ## DOCUMENTING 
 cat(paste0("Is File Gzipped: ", is_gz_file, "\n"), file=log, append=TRUE)
 cat(paste0("End time: ", end_time, "\n"), file=log, append=TRUE)
@@ -286,6 +291,7 @@ cat(paste0("\t 4. Identified ", temp_chromosome_count$Mapped_reads, "EBV Reads i
 # Create a sub-directory to export the sam files corresponding to EBV reads
 newdir <- paste(temp_output_dir,"/EBV_BAM_file",sep = "")
 dir.create(newdir) 
+
 # Extracting Viral Read BAM file per virus into new Directory: 
 cat("\t 5. Extracting BAMs files to new directories. \n", file=log, append = TRUE)
 # Identify Number of Parrallel threads to use for Bam sorting depending on the input number of threads and the number of identified viruses
@@ -302,10 +308,10 @@ cl =makeCluster(N_threadR)
 registerDoParallel(cl)
 cat("\t Done. \n", file=log, append = TRUE)
 # Create One Bam File Per Virus: 
-foreach(i=rownames(temp_chromosome_count)) %dopar% {
+invisible(foreach(i=rownames(temp_chromosome_count)) %dopar% {
   temp_export_bam_command = paste("samtools view -b ",temp_sorted_bam," \'",i,"\'"," > \'",temp_output_dir,"/EBV_BAM_file/",i,".bam\'",sep = "")
   system(temp_export_bam_command)
-}
+})
 
 cat("\t 5.b  Viral BAM Files Extracted. \n", file=log, append = TRUE)
 
@@ -318,10 +324,10 @@ human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromos
 human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
 temp_chromosome_count_human = temp_chromosome_count_human[rownames(temp_chromosome_count_human)%in% human_chromosomes ,]
 dir.create(paste(temp_output_dir,"/HUMAN_BAM_files",sep = ""))
-foreach(i=rownames(temp_chromosome_count_human)) %dopar% {
+invisible(foreach(i=rownames(temp_chromosome_count_human)) %dopar% {
   temp_export_bam_command = paste("samtools view -b ",temp_sorted_bam," \'",i,"\'"," > \'",temp_output_dir,"/HUMAN_BAM_files/",i,".bam\'",sep = "")
   system(temp_export_bam_command)
-}
+})
 cat("\t 5.c Human BAM Files Extracted. \n", file=log, append = TRUE)
 stopImplicitCluster()
 cat("\t 5.d Terminating Parrallel Environment. \n", file=log, append = TRUE)
@@ -359,11 +365,11 @@ if(temp_chromosome_count[,2]>0){
 		
 		#calculate percentage of nucleotides in the viral reads for Read Entropy
 		# If only one reads present returns numeric vector rather than dataframe:
-		if (class(Viral_reads_contents)=="numeric") {
-		  Viral_reads_contents = matrix(Viral_reads_contents_mean,ncol = 4)
-		}
-		
-		Viral_reads_contents_mean =colMeans(Viral_reads_contents)
+		suppressWarnings(if (class(Viral_reads_contents)=="numeric"){
+			Viral_reads_contents_mean <- t(data.frame(Viral_reads_contents))
+		} else {
+			Viral_reads_contents_mean <- colMeans(Viral_reads_contents)
+		})
 		Read_entropy = sum(-log(Viral_reads_contents_mean)*Viral_reads_contents_mean,na.rm = T)
 		#Caclulate the spatial distribution of the mapped reads : how much percent of the genome is mapped ?
 		Covered_genome = coverage(BAM_file)[[z]]
@@ -428,11 +434,10 @@ cat("\t Calculating VIRAL QC Metrics.... DONE!. \n", file=log, append = TRUE)
 
 ## ------------------------------------------------------------------------------------
 ## Now we perform filtering based ont the Calculaed QC statsitics: 
-## Editied by LEO -- otherwise fails if only one virus is detected as produces numeric vector rather than dataframe. 
-if (class(QC_result)=="numeric"){
+suppressWarnings(if (class(QC_result)=="numeric"){
   cat('Only one virus detected - output is not a dataframe: converting \n', file=log, append = TRUE)
   QC_result <- as.data.frame(t(as.data.frame(QC_result)))
-}
+})
 if (length(QC_result[,1])>0){
 	colnames(QC_result) = c("N_reads","N_unique_reads","Percent_uniquely_mapped",
 							"Mean_read_quality","Sd_read_quality",
@@ -473,16 +478,12 @@ if (length(QC_result[,1])>0){
 ## Returning QC Metrics for viruses that passed Filtering 
 Filtered_QC=QC_result[detected_virus,]
 unfilteredoutfile <- paste0(temp_output_dir, "/", name_target, "QC_EBV_ANALYSIS.txt")
-
 cat("\t 9. Exporting QC Metrics for EBV.txt files. \n", file=log, append = TRUE)
+
 ##Exporting the tables of the QC analysis
 write.table(file = unfilteredoutfile, x = QC_result, quote = F,sep = "\t")
 cat("\t Exporting QC Metrics... DONE! \n", file=log, append = TRUE)
 
-
-## ------------------------------------------------------------------------------------
-# Note removed splice table info as this didnt seem to be used anywhere else?
-##------------------------------------------------------------------------------------
 
 ## Calculating some additional Statistics needed for Plots: 
 ## Additional info : % of reads mapped to viral vs host
@@ -519,9 +520,9 @@ if(length(Mapping_selected_virus[, 1])>0) {
 	Mapping_selected_virus = Mapping_selected_virus[order(Mapping_selected_virus$N_unique_reads,decreasing = TRUE),]
 }
 cat("\t 10. Calculating Broad Metrics on Mapping...DONE \n", file=log, append = TRUE)
+
 ## ------------------------------------------------------------------------------------
 ## Plotting the Statisitics 
-
 cat("\t 11. Plotting QC plots to pdf. \n", file=log, append = TRUE)
 Mapping_selected_virus$Name_id <- rownames(Mapping_selected_virus)
 Mapping_selected_virus$Name_sequence <- rownames(Mapping_selected_virus) 
@@ -531,16 +532,14 @@ if(length(Mapping_selected_virus[, 1])==0) {
   Mapping_selected_virus <- data.frame(N_reads = numeric(), N_unique_reads = numeric(), Name_id = character(), Name_sequence = character(), Complete_segment_name=character())
 }
 
-
 if(length(Mapping_selected_virus[, 1])>0) {
 	Mapping_selected_virus$fullname <- Mapping_selected_virus$Name_id
 	Nucleotide_usage <- data.frame(Mapping_selected_virus[, c("A", "C", "T", "G", "fullname")])
 	Nucleotide_usage <- melt(Nucleotide_usage, id.vars=c("fullname"), measure.vars=c("A", "C", "T", "G"), value.name="NTUsage")
 }
 
-
-pdf_name <-paste0(temp_output_dir, "/", name_target, "_Summary.pdf")
 ## Open PDF file: 
+pdf_name <-paste0(temp_output_dir, "/", name_target, "_Summary.pdf")
 pdf(pdf_name, height = 20, width = 20)
 
 # Plotting the proportion of uniquely mapped reas, unmapped etc...
@@ -615,7 +614,7 @@ if (length(Mapping_selected_virus[, 1])>0) {
  t4 <- ggplot(Nucleotide_usage, aes(fill=variable, y=NTUsage, x=fullname)) + geom_bar(position="fill", stat="identity") + theme_classic() + xlab("Virus") + ylab("Nucleotide Usage") + labs(fill="Nucleotide") + coord_flip()
  plot(plot_grid(t1, t2, t4, nrow=2, ncol=2, labels = "AUTO"))
 } 
-dev.off() 
+invisible(dev.off()) 
 
 
 cat("\t 11. Plotting QC statistics.. Done. \n", file=log, append = TRUE)
@@ -652,11 +651,9 @@ List_bam_files =c()
 ## Identify which viral bam files we want to demultiplex (those for filtered viruses)
 Identified_viral_fragments <- detected_virus  
 ## Assuming viral reads are present: 
-for (segment_temp in QC_result$genome) {
-  List_bam_files = c(List_bam_files, paste(temp_output_dir,"/EBV_BAM_file/",segment_temp,".bam",sep = ""))
-}
 ## Also we want to demultiplex human Reads
 path_to_human <- paste0(temp_output_dir, "/HUMAN_BAM_files")
+List_bam_files <- c(list.files(paste0(temp_output_dir,"/EBV_BAM_file"), recursive = TRUE, full.name=TRUE))
 List_bam_files <- c(List_bam_files, list.files(path_to_human, recursive = TRUE, full.name=TRUE))
 List_bam_files = paste("\'",List_bam_files,"\'",sep = "")
   
@@ -687,13 +684,13 @@ colnames(RNA_counts)[7] <- "count"
 ## -------------------------------------------------------------------
 ## Summarised the information in a counts file 
 
-cat("\n 9. Exporting RNA_SEQ COUNTS to files. \n", file=log, append = TRUE)
+cat("Exporting RNA_SEQ COUNTS to Count File. \n", file=log, append = TRUE)
 ##Exporting the tables of the QC analysis
 
 EBV_COUNTS_SUMMARY <- paste0(temp_output_dir, "/EBV_COUNTS_SUMMARY_", sample_name, ".txt")
 
 write.table(file = EBV_COUNTS_SUMMARY, x = RNA_counts, quote = F,sep = "\t")
-cat("\n Exporting RNA_SEQ Counts summary... DONE! \n", file=log, append = TRUE)
+cat("Exporting RNA_SEQ Counts summary... DONE! \n", file=log, append = TRUE)
 
 ## -----------------------------------------------------------------------------------
 
@@ -708,53 +705,45 @@ system(move)
 move <- paste0("mv ", pdf_name, " ", Report_dir )
 system(move)
 move <- paste0("mv ", unfilteredoutfile, " ", Report_dir )
-
-
 system(move)
 move <- paste0("mv ", temp_output_dir, "/Reads_to_demultiplex.bam ", Report_dir )
 system(move)
-
-
 features <- paste0(temp_output_dir, "/", sample_name, "_FEATURE_COUNTS.log")
 move <- paste0("mv ", features, " ", Report_dir )
 system(move)
 star <- paste0(temp_output_dir, "/", sample_name, "Log.final.out")
 move <- paste0("mv ", star, " ", Report_dir )
 system(move)
-
 star <- paste0(temp_output_dir, "/", sample_name, "Log.out")
 move <- paste0("mv ", star, " ", Report_dir )
 system(move)
-
 star <- paste0(temp_output_dir, "/counts.txt.summary")
 move <- paste0("mv ", star, " ", Report_dir )
 system(move)
-
 cat("Done. \n", file=log, append=TRUE)
 
 clear <- paste0("rm  ", temp_output_dir, "/* 2> /dev/null" )
 system(clear)
-
 clear <- paste0("rm -r ", temp_output_dir, "/HUMAN_BAM_files")
 system(clear)
-
 clear <- paste0("rm -r ", temp_output_dir, "/EBV_BAM_file")
 system(clear)
 
-
-
 ## -----------------------------------------------------------------------------------
-
 end_time <- Sys.time()
 Time_difference <- end_time - start_time
 cat("Run Time ", Time_difference, "\n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
-cat(" VIRNA_seq PIPELINE COMPLETE. \n", file=log, append=TRUE)
+cat("VIRNA_seq PIPELINE COMPLETE. \n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
-
 ## -----------------------------------------------------------------------------------quit()
 
+## Finally move log file into report directory 
+move <- paste0("mv ", log, " ", Report_dir )
+system(move)
+
+## PIPELINE COMPLETE 
 
 
 

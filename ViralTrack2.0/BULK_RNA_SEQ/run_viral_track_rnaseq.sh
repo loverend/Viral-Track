@@ -26,6 +26,7 @@ CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/BULK_
 eval "${CMD}"
 CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/BULK_RNA_SEQ/ViRNAseq_Unique.R -f ${SAMPLE} -n 2 -o /gpfs2/well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk"
 eval "${CMD}"
+
 # Done 
 echo
 echo "********************************************************"
