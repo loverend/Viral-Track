@@ -22,10 +22,10 @@ SAMPLES_FILE=$1
 SAMPLE=$(awk -F '\t' "{if (NR==$SGE_TASK_ID) print \$1}" $SAMPLES_FILE)      # Sample ID
 
 # RunJob
-CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/BULK_RNA_SEQ/ViRNAseq_Multi.R -f ${SAMPLE} -n 2 -o /gpfs2/well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk"
-eval "${CMD}"
 CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/BULK_RNA_SEQ/ViRNAseq_Unique.R -f ${SAMPLE} -n 2 -o /gpfs2/well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk"
 eval "${CMD}"
+CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/BULK_RNA_SEQ/ViRNAseq_Multi1.R -f ${SAMPLE} -n 2 -o /gpfs2/well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk"
+eval "${CMD}" 
 
 # Done 
 echo
@@ -33,3 +33,4 @@ echo "********************************************************"
 echo "["`date`"] Done"
 echo "********************************************************"
 exit 0
+qsub 

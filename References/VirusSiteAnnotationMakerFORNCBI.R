@@ -18,23 +18,56 @@ library(seqinr)
 suppressMessages(library(optparse))
 parser <- OptionParser()
 option_list <- list(
-  make_option(c("-g", "--genomes"), action="store", type="character", default = "/gpfs2/well/immune-rep/users/kvi236/References/justin_reference.fasta", help="Path to genomes .fa Downloaded from VirusSite [default]"),
-  make_option(c("-o", "--output"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/VIRUS/Viral-Track/References/", help="Path to output directory [default]"),
-  make_option(c("-e", "--extra_files"), action="store", type="character", default="/well/immune-rep/users/kvi236/References/VIRUS_REFERENCE/covid-19.fasta", help="Comma seperated list of extra fasta files")
+  make_option(c("-g", "--genomes"), action="store", type="character", default = "/gpfs2/well/immune-rep/users/kvi236/References/VIRUS_REFERENCE/NCBI/ncbi_reference.fasta", help="Path to genomes .fa Downloaded from VirusSite [default]"),
+  make_option(c("-o", "--output"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/", help="Path to output directory [default]"),
+  make_option(c("-e", "--extra_files"), action="store", type="character", default="/gpfs2/well/immune-rep/users/kvi236/References/VIRUS_REFERENCE/Subset_Reference", help="List to directory containing extra filepaths")
 
 )
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser, print_help_and_exit = TRUE, args = commandArgs(trailingOnly = TRUE) )
 
-
-
-
+extra_files <- list.files(opt$e, full.names=TRUE)
+extra_files <- grep("fasta", extra_files, value=TRUE)
 ## Read in the VirusSite genomes.fa file:
 l <- read.fasta(opt$genomes, seqtype = "DNA", as.string = TRUE, forceDNAtolower = TRUE,set.attributes = TRUE)
 annotation <- unlist(getAnnot(l))
+## There are a couple of viruses I want to remove from the reference. 
+## ebv type 1 "NC_009334.1"
+# macine herpesvirus "NC_004812.1"
+# hep e rat "NC_038504.1"
+# heron hep c "NC_001486.1"
+
+
+influenza_a <- grep("Influenza A", annotation, value = TRUE)
+influenza_a <- unlist(strsplit(influenza_a, " "))
+influenza_a <- grep(">NC", influenza_a, value = TRUE)
+influenza_a <- unlist(strsplit(influenza_a, ">"))
+influenza_a <- grep("NC", influenza_a, value = TRUE)
+
+influenza_b <- grep("Influenza B", annotation, value = TRUE)
+influenza_b <- unlist(strsplit(influenza_b, " "))
+influenza_b <- grep(">NC", influenza_b, value = TRUE)
+influenza_b <- unlist(strsplit(influenza_b, ">"))
+influenza_b <- grep("NC", influenza_b, value = TRUE)
+
+influenza_c <- grep("Influenza C", annotation, value = TRUE)
+influenza_c <- unlist(strsplit(influenza_c, " "))
+influenza_c <- grep(">NC", influenza_c, value = TRUE)
+influenza_c <- unlist(strsplit(influenza_c, ">"))
+influenza_c <- grep("NC", influenza_c, value = TRUE)
+
+viruses_remove <- c(influenza_a, influenza_b, influenza_c, "NC_009334.1", "NC_004812.1", "NC_038504.1", "NC_001486.1")
+`%notin%` <- Negate(`%in%`)
+
+## Removed dodgy viruses which are causing issues!!!!
+l_subset <- l[names(l) %notin% viruses_remove]
+l <- l_subset
 lengths <- getLength(l)
 nc <- getName(l)
+
+
+write.fasta(sequences=l_subset,names=names(l_subset), file.out="/gpfs2/well/immune-rep/users/kvi236/References/VIRUS_REFERENCE/NCBI_subset.fa", nbchar = 60)
 
 
 
@@ -48,8 +81,6 @@ for (i in 1:length(l)){
   z <- z[2]
   z <- unlist(strsplit(z," ",fixed = T))
   nc <- z[1]
-  nc <- unlist(strsplit(nc,".",fixed = T))
-  nc <- nc[1]
   z <- z[-1]
   z <- paste(z, collapse = ' ')
   q <- unlist(strsplit(z, ",", fixed=TRUE))[1]
@@ -62,35 +93,44 @@ df <- df[, c(2, 1, 3,4 )]
 colnames(df) <- c("Name_sequence", "Genome_length", "Virus_name", "Complete_segment_name")
 ## Extra fasta files:
 
-if(length(opt$extra_files)>0){
-  extra_files <- opt$extra_files
-  extra_files <- unlist(strsplit(extra_files, ","))
-}
 
 if (length(extra_files)>=1){
-  extra_df <- NULL
-  for (i in extra_files){
-    f <- read.fasta(i, seqtype = "DNA", as.string = TRUE, forceDNAtolower = TRUE,set.attributes = TRUE)
-    annotation <- unlist(getAnnot(f))
-    all_genomes <- names(f)
-    for (i in 1:length(all_genomes)){
-      z <- all_genomes[i]
-      z <- unlist(strsplit(z,"|",fixed = T))
-      nc <- z[2]
-      nucleo <- unlist(strsplit(z[3],split='nt', fixed=TRUE))
-      x <- annotation[i]
-      f <- unlist(strsplit(x, "|", fixed=TRUE))[4]
-      q <- unlist(strsplit(f, ",", fixed=TRUE))[1]
-      row <- c(nc, nucleo, q, f)
-      extra_df = rbind(extra_df, row)
+   df_2 <- NULL
+   for (i in 1:length(extra_files)){
+	path <- extra_files[i]
+    u <- read.fasta(path, seqtype = "DNA", as.string = TRUE, forceDNAtolower = TRUE,set.attributes = TRUE)
+	if(length(u)>1){
+	for (i in 1:length(u)){
+		  z <- unlist(getAnnot(u)[i])
+		  length <- unlist(getLength(u)[i])
+		  z <- unlist(strsplit(z," |",fixed = T))
+		  name <- z[2]
+		  z <- unlist(strsplit(z[1],">",fixed = T))
+		  nc <- z[2]
+		  row <- c(nc, length, name, name)
+		  df_2 = rbind(df_2, row)
+	} 
+	}
+	if(length(u)==1){
+		annotation <- unlist(getAnnot(u))
+		length <- unlist(getLength(u))
+		z  <- names(u)
+		z <- unlist(strsplit(z,"|",fixed = T))
+		nc <- grep("NC", z, value=TRUE)
+		
+		x <- annotation
+		f <- unlist(strsplit(x, "|", fixed=TRUE))
+		f <- f[length(f)]
+		q <- f
+		row <- c(nc, length, q, f)
+		df_2 = rbind(df_2, row)
     }
-  }
-} else {
-  extra_df <- data.frame(Name_sequence = character(), Genome_length=character(), Virus_name=character(), Complete_segment_name=character())
-}
-colnames(extra_df) <- c("Name_sequence", "Genome_length", "Virus_name", "Complete_segment_name")
+	}
+	}
+	
+colnames(df_2) <- c("Name_sequence", "Genome_length", "Virus_name", "Complete_segment_name")
 ## Make Final Df by merging virus site and Extra Files 
-final_df <- rbind(df, extra_df)
+final_df <- rbind(df, df_2)
 
 ## Save
-write.table(final_df, file = paste0(opt$output, "/Updated_VirusSite_Reference_justin.txt"), sep = "\t", row.names = FALSE, col.names = TRUE, quote=FALSE)
+write.table(final_df, file = paste0(opt$output, "/Updated_VirusSite_Reference_subset.txt"), sep = "\t", row.names = FALSE, col.names = TRUE, quote=FALSE)

@@ -38,7 +38,7 @@ option_list <- list(
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
   make_option(c("-f", "--fastq"), action="store", type="character", default = "/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033399/gains8033399.Unmapped.out.mate1,/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033399/gains8033399.Unmapped.out.mate2", help="Path to input FASTQ file [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="RNASEQ_EBV", help="Run Name [default]"),
-  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/ViralTrackProgram/RPipeline/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
+  make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/VIRUS/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/REFERENCE_FILES/genes_final.gtf", help="Path to GTF file [default]")
 )
 
@@ -170,7 +170,7 @@ if (!is.null(optfastq)) {
 }
 }
 
-## Test the file path and wether it is a fasta file: Will need to be run seperately on each fastq if multiple files present
+## Test the file path and whether it is a fasta file: Will need to be run seperately on each fastq if multiple files present
 if (length(unlist(str_split(opt$f, ","))) >= 2) {
 	cat("More than one input file detected: R1 and R2 File detected. \n", file=log, append=TRUE)
 	x <- unlist(str_split(opt$f, ","))
@@ -216,7 +216,6 @@ Name_run = opt$runname
 Index_genome = opt$indexgenome 
 path_to_gtf = opt$gtffile
 source(opt$auxfunctions) 
-
 
 ## ------------------------------------------------------------------------------------
 ## Mapping: 
@@ -307,6 +306,7 @@ cat("\t 5.a  Setting up Parrallel Environment in R using: ", N_threadR, " Thread
 cl =makeCluster(N_threadR)
 registerDoParallel(cl)
 cat("\t Done. \n", file=log, append = TRUE)
+
 # Create One Bam File Per Virus: 
 invisible(foreach(i=rownames(temp_chromosome_count)) %dopar% {
   temp_export_bam_command = paste("samtools view -b ",temp_sorted_bam," \'",i,"\'"," > \'",temp_output_dir,"/EBV_BAM_file/",i,".bam\'",sep = "")
@@ -355,6 +355,14 @@ if(temp_chromosome_count[,2]>0){
     z <- rownames(temp_chromosome_count)[i]
     BAM_file_1=readGAlignments(paste(temp_output_dir, "/EBV_BAM_file/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
     BAM_file_2= BAM_file_1[BAM_file_1@elementMetadata$flag==0 | BAM_file_1@elementMetadata$flag==16]
+	if(length(BAM_file_2)==0){
+	  cat("Warning no EBV primary alignments identified - all reads are secondary alignments and will not be used for QC. \n", file=log, append=TRUE)
+	  QC_result = data.frame(N_mapped_reads = numeric(),N_unique_mapped_reads=numeric(),Percent_uniquely_mapped=numeric(),
+              Mean_read_quality=numeric(),Sd_read_quality=numeric(),
+              A = numeric(), C= numeric(), G = numeric(), T = numeric(), Read_entropy=numeric(),Spatial_distribution=numeric(),Longest_contig=numeric(),
+              Mean_dust_score=numeric(),Percent_high_quality_reads=numeric())
+	  next
+	  }
 	BAM_file= BAM_file_2[BAM_file_2@elementMetadata$mapq==255]	## Identifies only primary alignments
 	if(length(BAM_file) >0){
 		#Let's check the diversity of the reads
@@ -605,7 +613,7 @@ if ("FAIL" %notin% levels(QC_result$PassedFiltering)){
 # Plot Number of Reads > 50 (filtering threshold)
 if(length(rownames(QC_result))>0){
 	if(QC_result$N_unique_reads>0){
-	  p1 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_reads, y=(N_unique_reads))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("Number Uniquely Mapped Reads") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Unique Reads: Multimapping Read Count")+ expand_limits(x = 0, y = 0)
+	  p1 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_reads, y=(N_unique_reads))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("Number Uniquely Mapped Reads") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: Multimapping Read Count")+ expand_limits(x = 0, y = 0)
 	  p2 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_unique_reads, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Uniquely Mapped Reads") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Unique Reads: Unique Read Count")
 	  p3 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Sequence_entropy, y=(Spatial_distribution*100))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Sequence Entropy") + ylab("% Mapped genome") + geom_hline(yintercept=5, linetype="dashed", color="grey") + ylim(0, 100) + geom_vline(xintercept=1.2, linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: Unique Read Sequence Complexity")
 	  p4 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=Longest_contig, y=DUST_score)) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Longest Contig (nt)") + ylab("DUST Score") + geom_vline(xintercept=(3*Mean_mapping_length), linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: DUST Score")
@@ -614,7 +622,7 @@ if(length(rownames(QC_result))>0){
 	} 
 
 	if(QC_result$N_unique_reads==0){
-	  p1 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_reads, y=(N_unique_reads))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("Number Uniquely Mapped Reads") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey") + ylim(0, 100) + ggtitle("Viral Summary Unique Reads: Multimapping Read Count") + expand_limits(x = 0, y = 0)
+	  p1 <- ggplot(QC_result, aes(shape=PassedFiltering, color=genome, x=N_reads, y=(N_unique_reads))) + geom_point() + scale_color_discrete(drop=FALSE) + scale_shape(drop=FALSE) + labs(color="Genome", shape="Passed Filtering") + theme_classic() + xlab("Number of Mapped Reads") + ylab("Number Uniquely Mapped Reads") + geom_vline(xintercept=(opt$t), linetype="dashed", color="grey") + ggtitle("Viral Summary Unique Reads: Multimapping Read Count") + expand_limits(x = 0, y = 0)
 	  plot(plot_grid(mapping_plot, mapping_host_virus, mapping_summary, Mapping_rate, p1, ncol=3, labels = "AUTO"))
 	}
 
@@ -634,6 +642,7 @@ if(length(rownames(Mapping_selected_virus))>0){
      t2 <- ggplot(Mapping_selected_virus, aes(x = Complete_segment_name, y = N_unique_reads, fill=Name_id)) + geom_bar(stat="identity") + theme_classic() + xlab("Virus") + ylab("Number of Uniquely Mapped Reads") + coord_flip() + labs(fill="NC Identifier")
 	 plot(plot_grid(t1, t2, nrow=2, ncol=2, labels = "AUTO"))
 }
+}
 invisible(dev.off()) 
 
 
@@ -644,11 +653,9 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 
 
 ## -----------------------------------------------------------------------------------
-
-
 ## END of Log Script part 1: 
 cat("----------------------------------------------\n", file=log, append=TRUE)
-cat("ViralTrack_Scanning.2.0 COMPLETE \n", file=log, append=TRUE)
+cat("EBV_Scanning.2.0 COMPLETE \n", file=log, append=TRUE)
 end_time <- Sys.time()
 cat(paste0("End time: ", end_time, "\n"), file=log, append=TRUE)
 Duration <- start_time_1 - end_time
@@ -688,13 +695,12 @@ start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
 ## Assigning reads to transcripts using Rsubread Featurecounts
-featurecommand = paste("featureCounts -T ", N_thread, " -t exon -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
+featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
 cat("Feature Counts Complete.  \n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
-
 #--------------------------------------------------------------------------------
 ## Read in counts.txt file (output from feature counts) 
 
