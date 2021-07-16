@@ -376,7 +376,7 @@ if(length(list.files(dir))>0){
   for(i in 1:length(rownames(temp_chromosome_count))) {
     z <- rownames(temp_chromosome_count)[i]
 	BAM_file_1=readGAlignments(paste(temp_output_dir, "/Viral_BAM_files/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
-    BAM_file_2= BAM_file_1[BAM_file_1@elementMetadata$flag !=355 & BAM_file_1@elementMetadata$flag != 419 & BAM_file_1@elementMetadata$flag != 403 & BAM_file_1@elementMetadata$flag != 339 ]
+    BAM_file_2= BAM_file_1[BAM_file_1@elementMetadata$flag ==163 | BAM_file_1@elementMetadata$flag == 99 | BAM_file_1@elementMetadata$flag == 147 | BAM_file_1@elementMetadata$flag == 83 ]
 	if(length(BAM_file_2)==0){
 		cat("\t Warning: Virus ", z, "Has no primary read assignments. Skipping QC. \n", file=log, append=TRUE)
 		if(length(rownames(temp_chromosome_count))==1){
@@ -729,7 +729,7 @@ start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
 ## Assigning reads to transcripts using Featurecounts
-featurecommand = paste("featureCounts -M --primary -t transcript -g gene_id -T ", N_thread, " -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt -p -s 0 " , feature_count_path, " 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
+featurecommand = paste("featureCounts -B -C -M --primary -t transcript -g gene_id -T ", N_thread, " -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt -p -s 0 " , feature_count_path, " 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)

@@ -10,7 +10,6 @@
 ##
 ## ---------------------------
 ## ---------------------------
-
 ## Reading in Commandline Modules - Not run as part of script! 
 #module purge
 #module use -a /apps/eb/dev/ivybridge/modules/all
@@ -20,7 +19,6 @@
 #module load SAMtools/1.10-GCC-9.3.0
 #module load STAR/2.7.3a-GCC-9.3.0
 #module load Subread/2.0.1-GCC-9.3.0
-
 ## ---------------------------
 ## Reading in command line arguments for script 
 if(nzchar(system.file(package = "optparse"))==FALSE){
@@ -36,7 +34,7 @@ option_list <- list(
   make_option(c("-m", "--minreads"), action="store", type="integer", default=1, help="Minimum number of reads per virus prior to use in QC analysis on[default]"),
   make_option(c("-t", "--thresholdmappedreads"), action="store", type="integer", default=10, help="Minimum number of reads per virus to pass filtering [default]"),
   make_option(c("-b", "--bins"), action="store", type="integer", default=50, help="outBAMsortingBinsN for STAR Mapping [default]"),
-  make_option(c("-f", "--fastq"), action="store", type="character", default = "/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033399/gains8033399.Unmapped.out.mate1,/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033399/gains8033399.Unmapped.out.mate2", help="Path to input FASTQ file [default]"),
+  make_option(c("-f", "--fastq"), action="store", type="character", default = "/well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033732/gains8033732.Unmapped.out.mate1 /well/jknight/Sepsis/Gene_Expression/RNASeq/MappedBamFiles/gains8033732/gains8033732.Unmapped.out.mate2", help="Path to input FASTQ file SPACE SEPERATE [default]"),
   make_option(c("-r", "--runname"), action="store", type="character", default="RNASEQ_EBV", help="Run Name [default]"),
   make_option(c("-a", "--auxfunctions"), action="store", type="character", default="/well/immune-rep/users/kvi236/VIRUS/Viral-Track/AuxillaryFunctions/auxillary_viral_track_functions.R", help="Path to ViralTrack Auxillary Functions [default]"),
   make_option(c("-g", "--gtffile"), action="store", type="character", default="/well/immune-rep/shared/10X_GENOMICS/EBV_ANNOTATION/REFERENCE_FILES/genes_final.gtf", help="Path to GTF file [default]")
@@ -123,8 +121,8 @@ suppressMessages(library(reshape2))
 
 ## Generating Log File:  
 ## Will generate name based on file input - if multiple files present will use the first to name
-if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	x <- unlist(str_split(opt$f, ","))
+if (length(unlist(str_split(opt$f, " "))) >= 2) {
+	x <- unlist(str_split(opt$f, " "))
 	x <- x[1]
 	name <- unlist(strsplit(x,"/",fixed = T))
 	sample_name <- name[length(name)]
@@ -139,8 +137,9 @@ log <-  paste0(opt$outputdir, "/RNAseq_EBV_", sample_name, ".log")
 ##-------------------------------------------------------
 ##  SETTING UP LOG HEADER 
 
-cat("RNAseq EBV+Human Mapping by Lauren Overend. \n", file=log, append=TRUE)
-cat("Bashford-Rogers Group. Wellcome Trust Centre for Human Genetics \n", file=log, append=TRUE)
+cat("RNAseq Unique EBV+Human Mapping by Lauren Overend. \n", file=log, append=TRUE)
+cat("Contact: lauren.overend@oriel.ox.ac.uk. \n", file=log, append=TRUE)
+cat("Bashford-Rogers, Wellcome Trust Centre for Human Genetics \n", file=log, append=TRUE)
 cat(paste0("Run Name: ", opt$runname, "\n"), file=log, append=TRUE)
 start_time_1 <- Sys.time()
 cat(paste0("Start time: ", start_time_1, "\n"), file=log, append=TRUE)
@@ -171,9 +170,9 @@ if (!is.null(optfastq)) {
 }
 
 ## Test the file path and whether it is a fasta file: Will need to be run seperately on each fastq if multiple files present
-if (length(unlist(str_split(opt$f, ","))) >= 2) {
-	cat("More than one input file detected: R1 and R2 File detected. \n", file=log, append=TRUE)
-	x <- unlist(str_split(opt$f, ","))
+if (length(unlist(str_split(opt$f, " "))) >= 2) {
+	cat("More than one input file detected: R1 and R2 File input. \n", file=log, append=TRUE)
+	x <- unlist(str_split(opt$f, " "))
 	for (i in x){
 		testfiles(i)
 	}
@@ -181,7 +180,6 @@ if (length(unlist(str_split(opt$f, ","))) >= 2) {
 } else {
 	testfiles(opt$f)
 } 
-
 ##-------------------------------------------------------
 ## Checking the parameters values and recording for this run
 cat("----------------------------------------------\n", file=log, append=TRUE)
@@ -200,7 +198,7 @@ cat(paste0("--gtffile: ", opt$gtffile, "\n"), file=log, append = TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 
 ##-------------------------------------------------------
-## Renaming Paramaters to original variable names as in ViralTrack1.0 (Pierre Bost) and sourcing auxillary funtions
+## Renaming Paramaters to original variable names as in ViralTrack (Pierre Bost 2020) and sourcing auxillary funtions
 N_thread = opt$nThreadmap 
 N_thread_sort = opt$nThreadsort
 N_bins = opt$bins
@@ -232,10 +230,14 @@ start_time <- Sys.time()
 cat(paste0("Start time: ", start_time, "\n"), file=log, append=TRUE)
 name_prefix = paste0(temp_output_dir, "/", name_target)
   
-#STAR mapping command
+#We construct a complex command
+# For paired-end reads, two files separated by space have to be specified: 
+# Match minimum of 50 bases, and more than 50% of read length must be mapped and greater than 0.5 minimum alignment score relative to read length  
+# Multimappers will be output in a random order (!!!!! unlike default behavio)
+
 STAR_mapping_command = paste("STAR --runThreadN ",N_thread," --outBAMsortingThreadN ",N_thread_sort," --outBAMsortingBinsN ", N_bins, " --genomeDir ",Index_genome," --readFilesIn ", opt$fastq," --outSAMattributes NH HI AS nM NM XS ",
                                "--outFileNamePrefix ",name_prefix," --outSAMtype BAM SortedByCoordinate --twopassMode Basic ",
-                               "--outFilterMatchNmin 35 --outMultimapperOrder Random --runRNGseed 1 --outFilterScoreMinOverLread 0.6 --outFilterMatchNminOverLread 0.6 > ", name_prefix, "_STAR_MAPPING.log", sep="")
+                               "--outFilterMatchNmin 50 --outFilterMismatchNoverLmax 0.5 --outMultimapperOrder Random --runRNGseed 1 --outFilterScoreMinOverLread 0.5 --outFilterMatchNminOverLread 0.5 > ", name_prefix, "_STAR_MAPPING.log", sep="")
 
 #If the file is in the format .gz then we need to add an additional paramter :
 if (is_gz_file==TRUE) {
@@ -339,10 +341,32 @@ cat("\t 7. Calculating QC Metrics. \n", file=log, append = TRUE)
 dir <- paste(temp_output_dir,"/EBV_BAM_file/",sep = "")
 if(length(list.files(dir))==0){
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
-  cat(paste0("\t NO VIRUSES IDENFIFIED WITH MIN READS MAPPED >=", Minimal_read_mapped, ". \n"), file=log, append=TRUE)
-  cat("\t NO QC VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
+  cat(paste0("\t NO EBV IDENFIFIED WITH MIN READS MAPPED >=", Minimal_read_mapped, ". \n"), file=log, append=TRUE)
+  cat("\t NO QC EBV VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   }  
+
+# mated_idx <- which(mcols(L)$mate_status == "mated")
+# https://broadinstitute.github.io/picard/explain-flags.html
+# https://bioconductor.org/packages/devel/bioc/manuals/GenomicAlignments/man/GenomicAlignments.pdf
+# L <- readGAlignmentsList(paste(temp_output_dir, "/EBV_BAM_file/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
+# Using PairedEnd list from genomic ranges to validate correct SAM flags (unique and paired correctly!)
+#unique_count <- 0
+#for(i in 1:length(L)){
+	#unique <- L[[i]]@elementMetadata$mapq
+	#print(unique)
+	#if (255 %in% unique){
+	#	unique_count=unique_count+1
+	#}
+	#}
+#unique_count <- 0
+#for(i in 1:length(L)){
+	#unique <- L[[i]]@elementMetadata$flag
+	#print(unique)
+	#if ( unique %in% c(163, 99, 147, 83)){
+	#	unique_count=unique_count+1
+	#}
+	#}
 
 if(temp_chromosome_count[,2]>0){
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
@@ -350,19 +374,24 @@ if(temp_chromosome_count[,2]>0){
   cat("\t QC VIRAL METRICS WILL BE CALCULTED. \n", file=log, append=TRUE)
   cat("\t ----------------------------------------------\n", file=log, append=TRUE)
   QC_result <- NULL
+  QC_names <- c()
 ## Generation of the QC report
   for(i in 1:length(rownames(temp_chromosome_count))) {
     z <- rownames(temp_chromosome_count)[i]
     BAM_file_1=readGAlignments(paste(temp_output_dir, "/EBV_BAM_file/", z, ".bam", sep=""),param=ScanBamParam(what=scanBamWhat()))
-    BAM_file_2= BAM_file_1[BAM_file_1@elementMetadata$flag==0 | BAM_file_1@elementMetadata$flag==16]
+    BAM_file_2= BAM_file_1[BAM_file_1@elementMetadata$flag ==163 | BAM_file_1@elementMetadata$flag == 99 | BAM_file_1@elementMetadata$flag == 147 | BAM_file_1@elementMetadata$flag == 83 ]
 	if(length(BAM_file_2)==0){
-	  cat("Warning no EBV primary alignments identified - all reads are secondary alignments and will not be used for QC. \n", file=log, append=TRUE)
-	  QC_result = data.frame(N_mapped_reads = numeric(),N_unique_mapped_reads=numeric(),Percent_uniquely_mapped=numeric(),
+		cat("\t Warning: Virus ", z, "Has no primary read assignments. Skipping QC. \n", file=log, append=TRUE)
+		if(length(rownames(temp_chromosome_count))==1){
+			  QC_result = data.frame(N_mapped_reads = numeric(),N_unique_mapped_reads=numeric(),Percent_uniquely_mapped=numeric(),
               Mean_read_quality=numeric(),Sd_read_quality=numeric(),
               A = numeric(), C= numeric(), G = numeric(), T = numeric(), Read_entropy=numeric(),Spatial_distribution=numeric(),Longest_contig=numeric(),
               Mean_dust_score=numeric(),Percent_high_quality_reads=numeric())
-	  next
-	  }
+		}
+		next
+	} else {
+	QC_names <- c(QC_names, z)
+	}
 	BAM_file= BAM_file_2[BAM_file_2@elementMetadata$mapq==255]	## Identifies only primary alignments
 	if(length(BAM_file) >0){
 		#Let's check the diversity of the reads
@@ -395,8 +424,8 @@ if(temp_chromosome_count[,2]>0){
 		Sd_read_quality = sd(Reads_quality)
 		
 		##... the number of mapped reads and unique mapped reads
-		N_unique_mapped_reads = sum(BAM_file_2@elementMetadata$mapq==255) ##Code specific to STAR aligner.... 
-		N_mapped_reads = length(BAM_file_2)
+		N_unique_mapped_reads = (sum(BAM_file_2@elementMetadata$mapq==255))/2 ##Code specific to STAR aligner.... 
+		N_mapped_reads = (length(BAM_file_2))/2
 		Percent_uniquely_mapped = N_unique_mapped_reads/N_mapped_reads
 		
 		##DUSTy score identifies low-complexity sequences, in a manner inspired by the dust implementation in BLAST
@@ -408,8 +437,8 @@ if(temp_chromosome_count[,2]>0){
 		  Percent_high_quality_reads =  sum(DUST_score<500)/length(DUST_score)
 		}
 	} else { 
-		N_unique_mapped_reads = sum(BAM_file_2@elementMetadata$mapq==255) ##Code specific to STAR aligner.... 
-		N_mapped_reads = length(BAM_file_2)
+		N_unique_mapped_reads = (sum(BAM_file_2@elementMetadata$mapq==255))/2 ##Code specific to STAR aligner.... 
+		N_mapped_reads = (length(BAM_file_2))/2
 		Percent_uniquely_mapped = N_unique_mapped_reads/N_mapped_reads
 		Mean_read_quality <- "NA"
 		Sd_read_quality <- "NA"
@@ -673,29 +702,25 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 ## -----------------------------------------------------------------------------------
 cat("Aggregating All Detected Viral and Human BAM files into Reads to Demultipled. \n", file=log, append=TRUE)
 
-## First aggregating all the reads from the detected viruses:
-List_bam_files =c()
-## Identify which viral bam files we want to demultiplex (those for filtered viruses)
-Identified_viral_fragments <- detected_virus  
-## Assuming viral reads are present: 
-## Also we want to demultiplex human Reads
-path_to_human <- paste0(temp_output_dir, "/HUMAN_BAM_files")
-List_bam_files <- c(list.files(paste0(temp_output_dir,"/EBV_BAM_file"), recursive = TRUE, full.name=TRUE))
-List_bam_files <- c(List_bam_files, list.files(path_to_human, recursive = TRUE, full.name=TRUE))
-List_bam_files = paste("\'",List_bam_files,"\'",sep = "")
-  
-## Merge these bam files into a Read to demultiplex file:   
-command_merge = base::paste("samtools merge ", temp_output_dir,"/Reads_to_demultiplex.bam -f ",paste(List_bam_files,collapse = " "),sep="")
-system(command_merge)
+# 1. Sorting the STAR Aligned.sortedByCoord.out.bam file ready for feature counting:
+cat("\t 2. Sorting BAM for feature counts: \n", file=log, append = TRUE)
+feature_count_path = paste0(temp_output_dir, "/", name_target, "for_feature_counts.bam")#[1]
+#To begin with : the ordered .BAM file need to indexed
+SAMtools_sorting_command = paste("samtools sort ",temp_sorted_bam, "-o ", feature_count_path)
+system(SAMtools_sorting_command)
+cat(paste0("\t Sorting BAM file for ",name_target," is done. \n"), file=log, append = TRUE)
 
+# Link to feature counts arguments
+# http://manpages.org/featurecounts
+## ------------------------------------------------------------------------------------
 cat("Aggregation Complete. \n", file=log, append=TRUE)
 cat("----------------------------------------------\n", file=log, append=TRUE)
 cat("Performing Feature Counts on Reads To Demultiplex.  \n", file=log, append=TRUE)
 start_time_f <- Sys.time()
 cat(paste0("-T: Threads for featureCounts: ", N_thread, " \n"), file=log, append=TRUE)
 cat("Start Time Feature Counts: ", start_time_f, "\n", file=log, append=TRUE)
-## Assigning reads to transcripts using Rsubread Featurecounts
-featurecommand = paste("featureCounts -T ", N_thread, " -t transcript -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt ", temp_output_dir, "/Reads_to_demultiplex.bam 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
+## Assigning reads to transcripts using Featurecounts
+featurecommand = paste("featureCounts -B -C -T ", N_thread, " -t exon -R BAM -g gene_id -a ", path_to_gtf, " -o ", temp_output_dir, "/counts.txt -p -s 0 " , feature_count_path, " 2> ", name_prefix, "_FEATURE_COUNTS.log", sep="")
 system(featurecommand)
 end_time_f <- Sys.time()
 cat("End Time Feature Counts: ", end_time_f, "\n", file=log, append=TRUE)
@@ -704,8 +729,13 @@ cat("----------------------------------------------\n", file=log, append=TRUE)
 #--------------------------------------------------------------------------------
 ## Read in counts.txt file (output from feature counts) 
 
+human_chromosomes <- rownames(temp_chromosome_count_human)[rownames(temp_chromosome_count_human) %notin% "EBV"]
+human_chromosomes <- human_chromosomes[human_chromosomes!="*"]
+
+
 RNA_counts <- read.delim(paste0(temp_output_dir, "/counts.txt"), header = TRUE, sep = "\t", skip="1")
 colnames(RNA_counts)[7] <- "count"
+ebv <- RNA_counts[RNA_counts$Chr=="EBV",]
 
 ## -------------------------------------------------------------------
 ## Summarised the information in a counts file 
@@ -716,6 +746,7 @@ cat("Exporting RNA_SEQ COUNTS to Count File. \n", file=log, append = TRUE)
 EBV_COUNTS_SUMMARY <- paste0(temp_output_dir, "/EBV_COUNTS_SUMMARY_", sample_name, ".txt")
 
 write.table(file = EBV_COUNTS_SUMMARY, x = RNA_counts, quote = F,sep = "\t")
+write.table(file = EBV_ONLY_COUNTS_SUMMARY, x = ebv, quote = F,sep = "\t")
 cat("Exporting RNA_SEQ Counts summary... DONE! \n", file=log, append = TRUE)
 
 ## -----------------------------------------------------------------------------------
@@ -728,11 +759,13 @@ dir.create(Report_dir)
 cat("Moving Useful Files into Report Directory. \n", file=log, append=TRUE)
 move <- paste0("mv ", EBV_COUNTS_SUMMARY, " ",  Report_dir )
 system(move)
+move <- paste0("mv ", EBV_ONLY_COUNTS_SUMMARY, " ",  Report_dir )
+system(move)
 move <- paste0("mv ", pdf_name, " ", Report_dir )
 system(move)
 move <- paste0("mv ", unfilteredoutfile, " ", Report_dir )
 system(move)
-move <- paste0("mv ", temp_output_dir, "/Reads_to_demultiplex.bam ", Report_dir )
+move <- paste0("mv ", feature_count_path, " ", Report_dir )
 system(move)
 features <- paste0(temp_output_dir, "/", sample_name, "_FEATURE_COUNTS.log")
 move <- paste0("mv ", features, " ", Report_dir )
@@ -752,8 +785,7 @@ clear <- paste0("rm  ", temp_output_dir, "/* 2> /dev/null" )
 system(clear)
 clear <- paste0("rm -r ", temp_output_dir, "/HUMAN_BAM_files")
 system(clear)
-clear <- paste0("rm -r ", temp_output_dir, "/EBV_BAM_file")
-system(clear)
+
 
 ## -----------------------------------------------------------------------------------
 end_time <- Sys.time()
@@ -770,7 +802,7 @@ move <- paste0("mv ", log, " ", Report_dir )
 system(move)
 
 ## PIPELINE COMPLETE 
-
+## Tada!
 
 
 
