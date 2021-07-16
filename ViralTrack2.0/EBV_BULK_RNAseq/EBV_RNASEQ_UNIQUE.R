@@ -744,6 +744,8 @@ cat("Exporting RNA_SEQ COUNTS to Count File. \n", file=log, append = TRUE)
 ##Exporting the tables of the QC analysis
 
 EBV_COUNTS_SUMMARY <- paste0(temp_output_dir, "/EBV_COUNTS_SUMMARY_", sample_name, ".txt")
+EBV_ONLY_COUNTS_SUMMARY <- paste0(temp_output_dir, "/EBV_ONLY_COUNTS_SUMMARY_", sample_name, ".txt")
+
 
 write.table(file = EBV_COUNTS_SUMMARY, x = RNA_counts, quote = F,sep = "\t")
 write.table(file = EBV_ONLY_COUNTS_SUMMARY, x = ebv, quote = F,sep = "\t")
