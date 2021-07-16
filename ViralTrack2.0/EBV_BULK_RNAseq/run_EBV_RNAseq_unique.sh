@@ -1,6 +1,8 @@
 #!/bin/bash
 
 #$ -cwd
+#$ -e COMMANDLOGS/
+#$ -o COMMANDLOGS/
 #$ -N EBV_RNAseq
 #$ -q short.qc
 #$ -pe shmem 3
@@ -22,7 +24,7 @@ SAMPLES_FILE=$1
 SAMPLE=$(awk -F '\t' "{if (NR==$SGE_TASK_ID) print \$1}" $SAMPLES_FILE)      # Sample ID
 
 # RunJob
-CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/EBV_BULK_RNAseq/EBV_RNASEQ_UNIQUE.R -f ${SAMPLE} -n 3 -o /well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk"
+CMD="Rscript /well/immune-rep/users/kvi236/VIRUS/Viral-Track/ViralTrack2.0/EBV_BULK_RNAseq/EBV_RNASEQ_UNIQUE.R -f ${SAMPLE} -n 3 -o /gpfs2/well/immune-rep/users/kvi236/VIRUS/Sepsis_Bulk/FINAL_JULY_21"
 eval "${CMD}"
 
 
